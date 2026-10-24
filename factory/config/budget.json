@@ -1,0 +1,16 @@
+{
+	"defaultRunBudgetUsd": 15,
+	"maxCallUsd": {
+		"spec-writer": 1.5,
+		"architect": 1.5,
+		"planner": 1.5,
+		"builder": 3,
+		"reviewer-security": 1.5,
+		"reviewer-code": 1.5,
+		"reviewer-ux": 1.5,
+		"reviewer-ui": 1.5,
+		"review-refuter": 1.5,
+		"approver": 1
+	},
+	"retry": { "maxAttempts": 3, "baseMs": 2000, "capMs": 60000 }
+}

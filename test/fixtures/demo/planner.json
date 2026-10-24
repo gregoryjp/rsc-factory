@@ -1,0 +1,75 @@
+[
+	{
+		"output": {
+			"tasks": [
+				{
+					"key": "web-ui",
+					"title": "Ticket list and creation UI",
+					"requirementIds": ["REQ-004", "REQ-006"],
+					"dependsOn": ["tickets-api"],
+					"acceptance": [
+						"List shows loading, empty, error and retry",
+						"Keyboard flow works at 390 and 1440 px"
+					],
+					"risk": "low",
+					"expectedPaths": ["web/src/features/tickets/"]
+				},
+				{
+					"key": "readme-health",
+					"title": "README and health endpoint",
+					"requirementIds": ["REQ-008"],
+					"dependsOn": [],
+					"acceptance": ["README documents setup", "GET /health/live responds"],
+					"risk": "low",
+					"expectedPaths": ["README.md", "src/infrastructure/http/health.ts"]
+				},
+				{
+					"key": "tickets-api",
+					"title": "Tickets API with validation",
+					"requirementIds": ["REQ-002", "REQ-003", "REQ-004", "REQ-007"],
+					"dependsOn": ["db-schema", "auth"],
+					"acceptance": [
+						"Create, list, filter and paginate tickets",
+						"Transitions validated and concurrency-safe",
+						"Input validated server-side"
+					],
+					"risk": "medium",
+					"expectedPaths": ["src/modules/tickets/"]
+				},
+				{
+					"key": "db-schema",
+					"title": "Database schema",
+					"requirementIds": ["REQ-002", "REQ-003"],
+					"dependsOn": [],
+					"acceptance": [
+						"Ticket, User and TicketEvent models exist",
+						"Migration applies on a clean database"
+					],
+					"risk": "low",
+					"expectedPaths": ["prisma/schema.prisma"]
+				},
+				{
+					"key": "auth",
+					"title": "Authentication and roles",
+					"requirementIds": ["REQ-001", "REQ-005"],
+					"dependsOn": ["db-schema"],
+					"acceptance": [
+						"Login with valid and invalid credentials",
+						"Unauthenticated access is rejected"
+					],
+					"risk": "low",
+					"expectedPaths": ["src/modules/auth/"]
+				},
+				{
+					"key": "cancel-ticket",
+					"title": "Supervisor-only cancellation",
+					"requirementIds": ["REQ-005"],
+					"dependsOn": ["tickets-api"],
+					"acceptance": ["Supervisor cancels; operator is denied"],
+					"risk": "medium",
+					"expectedPaths": ["src/modules/tickets/"]
+				}
+			]
+		}
+	}
+]

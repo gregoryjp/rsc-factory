@@ -1,0 +1,12 @@
+{
+	"spec-writer": "sonnet",
+	"architect": "sonnet",
+	"planner": "sonnet",
+	"builder": "sonnet",
+	"reviewer-security": "sonnet",
+	"reviewer-code": "sonnet",
+	"reviewer-ux": "sonnet",
+	"reviewer-ui": "sonnet",
+	"review-refuter": "sonnet",
+	"approver": "sonnet"
+}

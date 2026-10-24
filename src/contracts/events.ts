@@ -1,0 +1,63 @@
+import { z } from "zod";
+
+export const EventTypeSchema = z.enum([
+	"run.created",
+	"run.state_changed",
+	"run.resumed",
+	"run.canceled",
+	"task.seeded",
+	"task.ready",
+	"task.leased",
+	"task.lease_expired",
+	"task.lease_released",
+	"task.state_changed",
+	"artifact.recorded",
+	"role.called",
+	"plan.seeded",
+	"spec.changed",
+	"intake.req_ambiguous",
+	"product.bootstrapped",
+	"check.recorded",
+	"task.red_observed",
+	"task.green_observed",
+	"task.integrated",
+	"task.blocked",
+	"task.protected_change",
+	"task.phase_changed",
+	"task.review_recorded",
+	"task.review_gate",
+	"task.ui_evidence",
+	"task.retried",
+	"budget.reservation_expired",
+	"budget.added",
+	"provider.retry",
+	"build.canceled",
+	"audit.completed",
+	"delivery.declared",
+	"delivery.started",
+	"delivery.report_committed",
+	"delivery.completed",
+	"delivery.failed",
+	"release.planned",
+	"release.started",
+	"release.deployed",
+	"release.smoke_passed",
+	"release.smoke_failed",
+	"release.rollback_recorded",
+	"release.healthy",
+]);
+export type EventType = z.infer<typeof EventTypeSchema>;
+
+export const EventPayloadSchema = z.record(z.string(), z.unknown());
+export type EventPayload = z.infer<typeof EventPayloadSchema>;
+
+export const EventSchema = z.object({
+	id: z.number().int(),
+	runId: z.string(),
+	seq: z.number().int().positive(),
+	taskId: z.string().nullable(),
+	type: EventTypeSchema,
+	timestamp: z.number().int(),
+	payload: EventPayloadSchema,
+});
+export type RunEvent = z.infer<typeof EventSchema>;

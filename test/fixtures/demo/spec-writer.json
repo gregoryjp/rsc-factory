@@ -1,0 +1,110 @@
+[
+	{
+		"output": {
+			"requirements": [
+				{
+					"id": "REQ-001",
+					"text": "The operator signs in and sees the tickets; a wrong credential yields a generic error and unauthenticated users cannot query the tickets API.",
+					"acceptance": [
+						"Valid credentials show the ticket list",
+						"Wrong credentials return a generic error",
+						"Unauthenticated API call is rejected"
+					],
+					"priority": "must",
+					"sourceRef": "PRD REQ-001"
+				},
+				{
+					"id": "REQ-002",
+					"text": "The operator creates a ticket with an optional note of up to 200 characters; a unique number and state PREPARING are assigned and persist across API restarts.",
+					"acceptance": [
+						"Ticket created with unique number and PREPARING",
+						"Note longer than 200 characters is rejected",
+						"Ticket survives an API restart"
+					],
+					"priority": "must",
+					"sourceRef": "PRD REQ-002"
+				},
+				{
+					"id": "REQ-003",
+					"text": "Tickets move PREPARING -> READY -> PICKED_UP only; no skips or regressions; concurrent requests do not corrupt state.",
+					"acceptance": [
+						"Valid transitions succeed",
+						"Skips and regressions are rejected",
+						"Concurrent transitions leave a consistent state"
+					],
+					"priority": "must",
+					"sourceRef": "PRD REQ-003"
+				},
+				{
+					"id": "REQ-004",
+					"text": "Ticket list with state filter and pagination of 20, deterministic order; loading, empty, error and retry states are visible.",
+					"acceptance": [
+						"Filter by state works",
+						"Pages hold 20 tickets in a deterministic order",
+						"Loading, empty, error and retry are visible"
+					],
+					"priority": "must",
+					"sourceRef": "PRD REQ-004"
+				},
+				{
+					"id": "REQ-005",
+					"text": "Only a supervisor can cancel a non-picked-up ticket; an operator calling the API directly is denied.",
+					"acceptance": ["Supervisor cancels a ticket", "Operator receives a denial on the API"],
+					"priority": "must",
+					"sourceRef": "PRD REQ-005"
+				},
+				{
+					"id": "REQ-006",
+					"text": "Keyboard-usable interface at 390 and 1440 px viewports without unjustified horizontal scroll; state is not conveyed by color alone.",
+					"acceptance": [
+						"Keyboard-only flow works",
+						"No horizontal scroll at 390 and 1440 px",
+						"State has a non-color indicator"
+					],
+					"priority": "must",
+					"sourceRef": "PRD REQ-006"
+				},
+				{
+					"id": "REQ-007",
+					"text": "Server-side input validation; notes render as text, never executable HTML.",
+					"acceptance": [
+						"Invalid input is rejected by the server",
+						"Notes are escaped when rendered"
+					],
+					"priority": "must",
+					"sourceRef": "PRD REQ-007"
+				},
+				{
+					"id": "REQ-008",
+					"text": "README with install, example env variables without secrets, migration, seed and test commands; basic health endpoint.",
+					"acceptance": [
+						"README lists install, env, migration, seed and test commands",
+						"Health endpoint responds"
+					],
+					"priority": "must",
+					"sourceRef": "PRD REQ-008"
+				}
+			],
+			"assumptions": [
+				{
+					"id": "ASM-001",
+					"statement": "Sessions use an HTTP-only cookie with server-side expiry.",
+					"reason": "The PRD requires authentication but does not choose a strategy.",
+					"impact": "Affects the auth module and CSRF handling.",
+					"reversible": true,
+					"requirementIds": ["REQ-001", "REQ-005"]
+				}
+			],
+			"contradictions": [],
+			"outOfScope": [
+				"Public registration",
+				"Payments",
+				"Email",
+				"NFC",
+				"Realtime",
+				"Multiple companies"
+			],
+			"openQuestions": []
+		}
+	}
+]

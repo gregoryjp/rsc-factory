@@ -1,0 +1,8 @@
+.deep-copilot/
+node_modules/
+.factory/
+*.log
+.env
+.env.*
+!.env.example
+dist/

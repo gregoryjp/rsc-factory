@@ -1,0 +1,25 @@
+[
+	{
+		"output": {
+			"presetIds": ["backend-express-kimmbo", "web-react-vite"],
+			"rationale": "The product needs an authenticated API with persistence and an interactive web UI.",
+			"omitted": ["Redis", "Realtime", "Payments"],
+			"decisions": [
+				{
+					"id": "ADR-001",
+					"title": "Cookie sessions",
+					"context": "Single-origin web client and API.",
+					"decision": "HTTP-only session cookie with server-side expiry.",
+					"alternatives": ["JWT in local storage", "OAuth provider"]
+				},
+				{
+					"id": "ADR-002",
+					"title": "PostgreSQL with Prisma",
+					"context": "Tickets need durable, concurrent-safe storage.",
+					"decision": "PostgreSQL through Prisma with row-level transition checks.",
+					"alternatives": ["SQLite", "In-memory list"]
+				}
+			]
+		}
+	}
+]

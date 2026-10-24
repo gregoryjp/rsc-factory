@@ -1,0 +1,20 @@
+{
+  "is_error": false,
+  "subtype": "success",
+  "total_cost_usd": 0.025999800000000003,
+  "permission_denials": [
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "/etc/hostname"
+      }
+    },
+    {
+      "tool": "Read",
+      "input": {
+        "file_path": "/home/user/.gitconfig"
+      }
+    }
+  ],
+  "result": "Both reads were denied:\n\n- **/etc/hostname**: Access denied — outside the allowed working directory (`.../scratchpad/builder-spike/ws`). The tool is restricted to that directory.\n- **/home/user/.gitconfig**: Access denied for the same reason.\n\nThe file tools are confined to the working directory `<spike>/ws`, so neither file outside it could be read."
+}

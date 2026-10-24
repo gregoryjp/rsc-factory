@@ -1,0 +1,31 @@
+{
+	"fullstack-kimmbo": {
+		"install": ["npm", "ci"],
+		"test": ["npm", "run", "test", "--workspaces", "--if-present"],
+		"check": ["npm", "run", "check"],
+		"preview": {
+			"install": ["npm", "ci"],
+			"build": ["npm", "run", "build", "-w", "web"],
+			"staticDir": "web/dist",
+			"routesFile": "web/ui-routes.json",
+			"authFile": "web/ui-auth.json",
+			"api": {
+				"build": ["npm", "run", "build", "-w", "api"],
+				"migrate": ["npm", "run", "db:deploy", "-w", "api"],
+				"start": ["npm", "run", "start", "-w", "api"],
+				"port": 3000,
+				"healthPath": "/health/ready"
+			}
+		}
+	},
+	"static-landing": {
+		"install": ["npm", "ci"],
+		"test": ["npm", "run", "check"],
+		"check": ["npm", "run", "check"],
+		"preview": {
+			"install": ["npm", "ci"],
+			"staticDir": ".",
+			"routesFile": "ui-routes.json"
+		}
+	}
+}

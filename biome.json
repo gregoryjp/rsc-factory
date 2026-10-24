@@ -1,0 +1,32 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+	"files": {
+		"includes": [
+			"**",
+			"!**/package.json",
+			"!**/package-lock.json",
+			"!**/tsconfig*.json",
+			"!dist",
+			"!node_modules",
+			"!.factory",
+			"!docs",
+			"!evidence",
+			"!.atl",
+			"!.claude",
+			"!.deep-copilot",
+			"!factory"
+		]
+	},
+	"formatter": { "enabled": true, "indentStyle": "tab", "lineWidth": 100 },
+	"javascript": {
+		"formatter": { "quoteStyle": "double", "semicolons": "always", "trailingCommas": "all" }
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"suspicious": { "noExplicitAny": "error" }
+		}
+	},
+	"assist": { "actions": { "source": { "organizeImports": "on" } } }
+}

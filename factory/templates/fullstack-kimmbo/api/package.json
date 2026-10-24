@@ -1,0 +1,46 @@
+{
+	"name": "api",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"engines": { "node": ">=22" },
+	"scripts": {
+		"dev": "tsx watch src/server.ts",
+		"build": "tsc -p tsconfig.build.json",
+		"start": "node dist/server.js",
+		"postinstall": "prisma generate",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check .",
+		"format": "biome check --write .",
+		"check:boundaries": "node scripts/check-boundaries.mjs",
+		"check:sql": "node scripts/check-raw-sql.mjs",
+		"check:comments": "node scripts/check-comments.mjs",
+		"check:layers": "node scripts/check-layers.mjs",
+		"test": "vitest run",
+		"db:generate": "prisma generate",
+		"db:migrate": "prisma migrate dev",
+		"db:deploy": "prisma migrate deploy",
+		"check": "npm run typecheck && npm run lint && npm run check:boundaries && npm run check:sql && npm run check:comments && npm run check:layers && npm test"
+	},
+	"dependencies": {
+		"@prisma/client": "6.19.3",
+		"cors": "2.8.6",
+		"express": "5.2.1",
+		"helmet": "8.3.0",
+		"pino": "10.3.1",
+		"pino-http": "11.0.0",
+		"zod": "3.25.76"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.14",
+		"@types/cors": "2.8.19",
+		"@types/express": "5.0.6",
+		"@types/node": "22.20.4",
+		"@types/supertest": "7.2.1",
+		"prisma": "6.19.3",
+		"supertest": "7.3.0",
+		"tsx": "4.23.15",
+		"typescript": "5.9.3",
+		"vitest": "5.0.5"
+	}
+}

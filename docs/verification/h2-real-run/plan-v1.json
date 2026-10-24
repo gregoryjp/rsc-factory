@@ -1,0 +1,414 @@
+{
+  "planVersion": 1,
+  "specVersion": 1,
+  "tasks": [
+    {
+      "key": "backend-scaffold",
+      "title": "Scaffold backend API project with DB connection and health endpoint",
+      "requirementIds": [
+        "REQ-008"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "GET /health responds 200 with a minimal success body when the service is running.",
+        "The backend project boots and connects to a configured PostgreSQL database using environment variables."
+      ],
+      "risk": "high",
+      "expectedPaths": [
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/health.ts",
+        "apps/api/package.json",
+        ".env.example"
+      ],
+      "modelRisk": "low",
+      "riskReasons": [
+        "secret (paths)"
+      ]
+    },
+    {
+      "key": "db-schema-migrations",
+      "title": "Create Ticket and TicketEvent schema migrations (PostgreSQL)",
+      "requirementIds": [
+        "REQ-002",
+        "REQ-003",
+        "REQ-005"
+      ],
+      "dependsOn": [
+        "backend-scaffold"
+      ],
+      "acceptance": [
+        "A migration creates a Ticket table (number, note, status, timestamps, version) and an append-only TicketEvent table.",
+        "Running the migration command against a fresh PostgreSQL database succeeds without errors.",
+        "Data persists in PostgreSQL (not in-memory) so a ticket created survives an API process restart."
+      ],
+      "risk": "high",
+      "expectedPaths": [
+        "apps/api/migrations/",
+        "apps/api/src/db/schema.sql"
+      ],
+      "modelRisk": "high",
+      "riskReasons": [
+        "migration (paths)"
+      ]
+    },
+    {
+      "key": "db-seed",
+      "title": "Seed test/demo users with roles and demo data",
+      "requirementIds": [
+        "REQ-001",
+        "REQ-005",
+        "REQ-008"
+      ],
+      "dependsOn": [
+        "db-schema-migrations"
+      ],
+      "acceptance": [
+        "Running the seed command creates at least one operator user and one supervisor user with distinct roles in the database.",
+        "Seeded credentials are only intended for test/demo environments and are not real secrets committed as production values.",
+        "Running the seed command creates demonstration tickets for manual testing."
+      ],
+      "risk": "high",
+      "expectedPaths": [
+        "apps/api/scripts/seed.ts",
+        ".env.example"
+      ],
+      "modelRisk": "medium",
+      "riskReasons": [
+        "auth (requirement text)",
+        "session (requirement text)",
+        "secret (paths)"
+      ]
+    },
+    {
+      "key": "auth-api",
+      "title": "Implement server-session authentication with operator/supervisor roles",
+      "requirementIds": [
+        "REQ-001"
+      ],
+      "dependsOn": [
+        "backend-scaffold",
+        "db-seed"
+      ],
+      "acceptance": [
+        "Login with valid operator credentials succeeds and establishes a server session (httpOnly cookie).",
+        "Login with incorrect credentials returns a generic error that does not reveal whether the username or password was wrong.",
+        "A request to any tickets API endpoint without a valid session/token is rejected with 401 and no ticket data is returned."
+      ],
+      "risk": "high",
+      "expectedPaths": [
+        "apps/api/src/routes/auth.ts",
+        "apps/api/src/middleware/requireAuth.ts"
+      ],
+      "modelRisk": "high",
+      "riskReasons": [
+        "auth (paths)",
+        "session (requirement text)"
+      ]
+    },
+    {
+      "key": "ticket-creation-api",
+      "title": "Implement ticket creation endpoint with unique number and note validation",
+      "requirementIds": [
+        "REQ-002",
+        "REQ-007"
+      ],
+      "dependsOn": [
+        "db-schema-migrations",
+        "auth-api"
+      ],
+      "acceptance": [
+        "POST to create a ticket without a note succeeds, returns a unique ticket number, and sets status PREPARING.",
+        "POST with a note up to 200 characters is accepted and the note is stored as provided.",
+        "Two consecutively created tickets receive distinct ticket numbers.",
+        "A POST with a note exceeding 200 characters or with invalid/missing fields is rejected by the server regardless of any client-side validation."
+      ],
+      "risk": "medium",
+      "expectedPaths": [
+        "apps/api/src/routes/tickets.ts",
+        "apps/api/src/services/ticketService.ts"
+      ],
+      "modelRisk": "medium",
+      "riskReasons": []
+    },
+    {
+      "key": "ticket-transition-api",
+      "title": "Implement ticket state transition endpoint with strict state machine and concurrency safety",
+      "requirementIds": [
+        "REQ-003"
+      ],
+      "dependsOn": [
+        "ticket-creation-api"
+      ],
+      "acceptance": [
+        "A request transitioning a ticket from PREPARING to READY succeeds and updates the stored status.",
+        "A request transitioning a ticket from READY to PICKED_UP succeeds and updates the stored status.",
+        "A request attempting to transition directly from PREPARING to PICKED_UP is rejected.",
+        "A request attempting to move a ticket backward (e.g. READY to PREPARING) is rejected.",
+        "Two concurrent transition requests on the same ticket result in a consistent final state corresponding to a single valid transition, using an atomic/optimistic-locking update."
+      ],
+      "risk": "medium",
+      "expectedPaths": [
+        "apps/api/src/routes/tickets.ts",
+        "apps/api/src/services/stateMachine.ts"
+      ],
+      "modelRisk": "medium",
+      "riskReasons": []
+    },
+    {
+      "key": "ticket-cancellation-api",
+      "title": "Implement supervisor-only ticket cancellation endpoint preserving history",
+      "requirementIds": [
+        "REQ-005"
+      ],
+      "dependsOn": [
+        "ticket-transition-api"
+      ],
+      "acceptance": [
+        "An authenticated supervisor can cancel a ticket in PREPARING or READY status.",
+        "An attempt to cancel a ticket already in PICKED_UP status is rejected.",
+        "A cancellation request made by an authenticated operator (non-supervisor) is denied by the API with 403, independent of any UI restriction.",
+        "Cancellation records a new TicketEvent without deleting or overwriting prior history records."
+      ],
+      "risk": "high",
+      "expectedPaths": [
+        "apps/api/src/routes/tickets.ts",
+        "apps/api/src/middleware/requireRole.ts"
+      ],
+      "modelRisk": "high",
+      "riskReasons": []
+    },
+    {
+      "key": "ticket-list-api",
+      "title": "Implement ticket list endpoint with status filter, pagination, and deterministic order",
+      "requirementIds": [
+        "REQ-004"
+      ],
+      "dependsOn": [
+        "ticket-creation-api"
+      ],
+      "acceptance": [
+        "Filtering the list by a given status returns only tickets matching that status.",
+        "Each page of results contains at most 20 tickets.",
+        "Repeated requests for the same query (filter/page) return tickets in the same order (ordered by creation date ascending, ticket number as tiebreaker)."
+      ],
+      "risk": "medium",
+      "expectedPaths": [
+        "apps/api/src/routes/tickets.ts",
+        "apps/api/src/services/ticketService.ts"
+      ],
+      "modelRisk": "medium",
+      "riskReasons": []
+    },
+    {
+      "key": "server-validation-hardening",
+      "title": "Enforce server-side input validation across all ticket endpoints",
+      "requirementIds": [
+        "REQ-007"
+      ],
+      "dependsOn": [
+        "ticket-creation-api",
+        "ticket-transition-api",
+        "ticket-cancellation-api",
+        "ticket-list-api"
+      ],
+      "acceptance": [
+        "Requests with missing required fields or malformed payloads to any ticket endpoint are rejected by the server with a validation error, regardless of client-side checks.",
+        "Invalid query parameters on the list endpoint (e.g. unknown status value, out-of-range page) are rejected or safely defaulted on the server."
+      ],
+      "risk": "medium",
+      "expectedPaths": [
+        "apps/api/src/validation/"
+      ],
+      "modelRisk": "medium",
+      "riskReasons": []
+    },
+    {
+      "key": "frontend-login-ui",
+      "title": "Build login UI consuming the authentication API",
+      "requirementIds": [
+        "REQ-001"
+      ],
+      "dependsOn": [
+        "auth-api"
+      ],
+      "acceptance": [
+        "Submitting valid operator credentials logs the user in and navigates to the ticket list.",
+        "Submitting incorrect credentials displays a generic error message without indicating which field was wrong.",
+        "Unauthenticated users attempting to access the ticket list view are redirected to login or blocked from seeing ticket data."
+      ],
+      "risk": "high",
+      "expectedPaths": [
+        "apps/web/src/pages/Login.tsx",
+        "apps/web/src/api/authClient.ts"
+      ],
+      "modelRisk": "high",
+      "riskReasons": [
+        "auth (paths)",
+        "session (requirement text)"
+      ]
+    },
+    {
+      "key": "frontend-ticket-list-ui",
+      "title": "Build ticket list view with filter, pagination, loading/empty/error/retry states",
+      "requirementIds": [
+        "REQ-004"
+      ],
+      "dependsOn": [
+        "ticket-list-api",
+        "frontend-login-ui"
+      ],
+      "acceptance": [
+        "Selecting a status filter updates the displayed tickets to only that status.",
+        "The list paginates in pages of 20 and shows the same order on repeated loads of the same query.",
+        "A loading indicator is shown while data is being fetched.",
+        "An empty state is shown when no tickets match the current filter.",
+        "On request failure, an error state with a visible, functional retry action is shown."
+      ],
+      "risk": "low",
+      "expectedPaths": [
+        "apps/web/src/pages/TicketList.tsx",
+        "apps/web/src/api/ticketClient.ts"
+      ],
+      "modelRisk": "low",
+      "riskReasons": []
+    },
+    {
+      "key": "frontend-ticket-create-ui",
+      "title": "Build ticket creation UI with optional note field",
+      "requirementIds": [
+        "REQ-002"
+      ],
+      "dependsOn": [
+        "ticket-creation-api",
+        "frontend-ticket-list-ui"
+      ],
+      "acceptance": [
+        "Creating a ticket without a note succeeds and the new ticket appears with status PREPARING and a unique number.",
+        "Creating a ticket with a note up to 200 characters succeeds and the note is visible for that ticket.",
+        "Attempting to submit a note longer than 200 characters shows a client-side warning and the server rejection message if submitted."
+      ],
+      "risk": "medium",
+      "expectedPaths": [
+        "apps/web/src/components/CreateTicketForm.tsx"
+      ],
+      "modelRisk": "medium",
+      "riskReasons": []
+    },
+    {
+      "key": "frontend-ticket-transition-ui",
+      "title": "Build UI controls for advancing ticket status",
+      "requirementIds": [
+        "REQ-003"
+      ],
+      "dependsOn": [
+        "ticket-transition-api",
+        "frontend-ticket-list-ui"
+      ],
+      "acceptance": [
+        "An action is available to move a PREPARING ticket to READY and a READY ticket to PICKED_UP.",
+        "No UI control allows skipping directly from PREPARING to PICKED_UP or moving backward."
+      ],
+      "risk": "medium",
+      "expectedPaths": [
+        "apps/web/src/components/TicketStatusControls.tsx"
+      ],
+      "modelRisk": "medium",
+      "riskReasons": []
+    },
+    {
+      "key": "frontend-ticket-cancel-ui",
+      "title": "Build supervisor-only cancellation UI control",
+      "requirementIds": [
+        "REQ-005"
+      ],
+      "dependsOn": [
+        "ticket-cancellation-api",
+        "frontend-ticket-list-ui"
+      ],
+      "acceptance": [
+        "The cancel action is visible only to users logged in as supervisor.",
+        "Cancelling a PREPARING or READY ticket as supervisor updates its displayed status and the action is unavailable for PICKED_UP tickets."
+      ],
+      "risk": "high",
+      "expectedPaths": [
+        "apps/web/src/components/CancelTicketButton.tsx"
+      ],
+      "modelRisk": "high",
+      "riskReasons": []
+    },
+    {
+      "key": "frontend-note-security",
+      "title": "Render ticket notes as literal text to prevent XSS",
+      "requirementIds": [
+        "REQ-007"
+      ],
+      "dependsOn": [
+        "frontend-ticket-list-ui",
+        "frontend-ticket-create-ui"
+      ],
+      "acceptance": [
+        "A ticket note containing HTML tags or script content is displayed as literal text in the UI and is never executed as HTML/script."
+      ],
+      "risk": "medium",
+      "expectedPaths": [
+        "apps/web/src/components/TicketNote.tsx"
+      ],
+      "modelRisk": "medium",
+      "riskReasons": []
+    },
+    {
+      "key": "accessibility-responsive",
+      "title": "Ensure full keyboard operability and responsive layout without unjustified horizontal scroll",
+      "requirementIds": [
+        "REQ-006"
+      ],
+      "dependsOn": [
+        "frontend-ticket-list-ui",
+        "frontend-ticket-create-ui",
+        "frontend-ticket-transition-ui",
+        "frontend-ticket-cancel-ui"
+      ],
+      "acceptance": [
+        "All interactive controls (create, filter, change status, cancel) can be reached and activated using only the keyboard.",
+        "At a 390px viewport width, no unjustified horizontal scroll appears.",
+        "At a 1440px viewport width, no unjustified horizontal scroll appears.",
+        "Each ticket status is identifiable via text or icon in addition to color."
+      ],
+      "risk": "low",
+      "expectedPaths": [
+        "apps/web/src/styles/",
+        "apps/web/src/components/"
+      ],
+      "modelRisk": "low",
+      "riskReasons": []
+    },
+    {
+      "key": "readme-docs",
+      "title": "Write README with setup, env vars, migration/seed, test commands, and health endpoint docs",
+      "requirementIds": [
+        "REQ-008"
+      ],
+      "dependsOn": [
+        "backend-scaffold",
+        "db-schema-migrations",
+        "db-seed"
+      ],
+      "acceptance": [
+        "README includes reproducible installation steps.",
+        "README references an example environment variables file/section containing no real secrets.",
+        "README documents the commands to run migrations and seed demo data.",
+        "README documents the commands to run unit, integration, and E2E tests.",
+        "README documents the health endpoint and its expected successful response."
+      ],
+      "risk": "high",
+      "expectedPaths": [
+        "README.md",
+        ".env.example"
+      ],
+      "modelRisk": "low",
+      "riskReasons": [
+        "secret (paths)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "is_error": false,
+  "subtype": "success",
+  "total_cost_usd": 0.025976,
+  "permission_denials": [
+    {
+      "tool": "Bash",
+      "input": {
+        "command": "cat /etc/hostname",
+        "description": "Print system hostname file"
+      }
+    },
+    {
+      "tool": "Write",
+      "input": {
+        "file_path": "<spike>/outside/escape.txt",
+        "content": "x"
+      }
+    },
+    {
+      "tool": "Bash",
+      "input": {
+        "command": "git commit --allow-empty -m test",
+        "description": "Create empty git commit"
+      }
+    },
+    {
+      "tool": "Edit",
+      "input": {
+        "file_path": "<spike>/ws/.git/config",
+        "old_string": "[core]",
+        "new_string": "# x\n[core]",
+        "replace_all": false
+      }
+    }
+  ],
+  "result": "Here's the result of each step:\n\n1. **Create hello.txt with 'hi'** — ✅ **Succeeded**. File created at `.../builder-spike/ws/hello.txt`.\n\n2. **Run `npm test`** — ✅ **Succeeded**. Output:\n   ```\n   > x@1.0.0 test\n   > node -e \"console.log(42)\"\n   42\n   ```\n\n3. **Run `cat /etc/hostname`** — ❌ **Denied**. Blocked for security — Bash is restricted to the working directory (`.../builder-spike/ws`) and can't read outside system files like `/etc/hostname`.\n\n4. **Write escape.txt to the `outside/` path** — ❌ **Denied**. Blocked because that path is outside the working directory; tools are confined to `.../builder-spike/ws` (`--restricted` mode).\n\n5. **`git commit --allow-empty -m test`** — ❌ **Denied**. Requires explicit approval, which was not granted (\"This command requires approval\").\n\n6. **Edit `.git/config` to add `# x`** — ❌ **Denied**. Blocked because `.git/config` is treated as a sensitive file.\n\n**Summary:** Only steps 1 and 2 succeeded. Steps 3–6 were all denied due to sandbox/security restrictions (no access outside the working directory, no editing sensitive files, and command approval required for git commits)."
+}

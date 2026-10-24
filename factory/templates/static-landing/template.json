@@ -1,0 +1,5 @@
+{
+	"id": "static-landing",
+	"presetIds": ["static-landing"],
+	"render": ["AGENTS.md", "README.md", "docs/STATE.md", "index.html"]
+}

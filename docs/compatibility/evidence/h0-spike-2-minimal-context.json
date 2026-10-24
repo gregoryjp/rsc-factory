@@ -1,0 +1,42 @@
+{
+  "is_error": false,
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "total_cost_usd": 0.006946999999999999,
+  "structured_output": {
+    "status": "completed",
+    "summary": "The spike works."
+  },
+  "num_turns": 2,
+  "duration_ms": 1114,
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 906,
+      "outputTokens": 13,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.000971,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 78,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 1298,
+      "webSearchRequests": 0,
+      "costUSD": 0.0059759999999999995,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "specVersion": 1,
+  "architecture": {
+    "presetIds": [
+      "backend-express-kimmbo",
+      "web-react-vite"
+    ],
+    "rationale": "El sistema requiere una API con persistencia real (PostgreSQL, no memoria) y autenticación con dos roles (operador/supervisor) para gestionar el ciclo de vida de tickets, lo que exige el preset backend. Además requiere una interfaz interactiva (filtros, paginación, estados de carga/vacío/error, accesibilidad por teclado, dos viewports) que no es una página estática, lo que exige el preset web. Ambos se combinan porque el producto es full-stack: la UI consume la API de tickets y refleja autenticación y autorización de extremo a extremo.",
+    "omitted": [
+      "static-landing: descartado porque el producto requiere API, base de datos y lógica de autorización, incompatible con una página estática.",
+      "Capacidades realtime/push (websockets, SSE): excluidas explícitamente en el alcance (CON-001, outOfScope); se resuelve con refresco manual/polling, no se añade infraestructura de mensajería.",
+      "Multi-tenant: fuera de alcance (un único local), no se añade modelo de organizaciones/tenants.",
+      "Notificaciones por email, pagos, NFC, pantalla pública: explícitamente fuera de alcance en el PRD, no se incluyen capacidades ni presets adicionales para ellos.",
+      "Microservicios o infraestructura adicional (colas, caché distribuida): no hay requisito que los justifique; un backend monolítico con PostgreSQL es suficiente para el volumen y complejidad descritos."
+    ],
+    "decisions": [
+      {
+        "id": "ADR-001",
+        "title": "Modelo de datos: Ticket + historial de eventos (TicketEvent)",
+        "context": "REQ-002 exige persistencia tras reinicio y número único; REQ-003 exige transiciones de estado estrictas y auditables; REQ-005 exige cancelación sin borrar historial (ASM-007), ya que la sección 'Datos' del PRD pide explícitamente evitar borrado para simular cancelación.",
+        "decision": "Modelar una tabla Ticket (id, number, note, status, timestamps, version) y una tabla TicketEvent que registra cada transición (incluida CANCELLED) como un registro append-only, sin updates destructivos sobre el historial. El estado actual del ticket se deriva/sincroniza desde el último evento válido.",
+        "alternatives": [
+          "Solo tabla Ticket con campo status mutable y sin historial: más simple pero no permite auditar transiciones ni cumplir el requisito de 'evitar borrar historial'.",
+          "Event sourcing completo (reconstruir estado únicamente desde eventos, sin columna status denormalizada): más puro pero añade complejidad innecesaria para el alcance de un único local."
+        ]
+      },
+      {
+        "id": "ADR-002",
+        "title": "Estrategia de autenticación y autorización basada en sesión de servidor",
+        "context": "REQ-001 exige login con error genérico y bloqueo de acceso no autenticado a la API; REQ-005 exige distinguir rol operador vs supervisor para la cancelación, con denegación a nivel de API independiente de la UI (ASM-002, ASM-004).",
+        "decision": "Implementar autenticación mediante sesión de servidor (cookie httpOnly) con usuarios y roles (operator, supervisor) sembrados solo en entorno de pruebas/demo. Toda ruta de la API de tickets exige sesión válida (401 si falta) y las rutas sensibles (cancelación) verifican el rol en el servidor (403 si el rol no es supervisor), nunca solo en el cliente.",
+        "alternatives": [
+          "JWT sin estado en el cliente: viable pero añade complejidad de revocación/expiración sin beneficio claro para un único local sin escalado horizontal.",
+          "Autenticación externa (OAuth/SSO de terceros): fuera de alcance, el PRD no menciona proveedores externos ni registro público de usuarios."
+        ]
+      },
+      {
+        "id": "ADR-003",
+        "title": "Máquina de estados del ticket con control de concurrencia a nivel de base de datos",
+        "context": "REQ-003 exige que las transiciones sigan únicamente PREPARING→READY→PICKED_UP, rechazando saltos/retrocesos, y que peticiones concurrentes no corrompan el estado.",
+        "decision": "Validar las transiciones permitidas en una tabla/mapa explícito en el servidor y aplicar el cambio de estado en una única operación transaccional condicionada al estado actual (UPDATE ... WHERE status = <estado_esperado>), usando una columna de versión u optimistic locking para detectar conflictos; si la condición no se cumple, la transición se rechaza como inválida o se reintenta de forma segura.",
+        "alternatives": [
+          "Bloqueo pesimista (SELECT FOR UPDATE) por ticket: funcional pero añade contención innecesaria para el volumen esperado de un único local.",
+          "Validación solo en memoria de la aplicación sin condición atómica en la query: insuficiente para garantizar consistencia bajo peticiones concurrentes reales."
+        ]
+      },
+      {
+        "id": "ADR-004",
+        "title": "Generación de número único de ticket",
+        "context": "REQ-002 exige que cada ticket tenga un número único, legible y distinto entre creaciones consecutivas, sin especificar formato (ASM-001).",
+        "decision": "Generar el número de ticket mediante una secuencia autoincremental de la base de datos (o equivalente determinista), presentado como número legible (p. ej. entero o con prefijo simple), sin dependencias de sistemas externos.",
+        "alternatives": [
+          "UUID aleatorio: garantiza unicidad pero no es legible para un operador en mostrador.",
+          "Generación coordinada con un sistema externo de turnos: fuera de alcance, el PRD no menciona integración externa."
+        ]
+      },
+      {
+        "id": "ADR-005",
+        "title": "Orden y paginación deterministas en la lista de tickets",
+        "context": "REQ-004 exige paginación de 20 elementos con orden determinista entre cargas repetidas de la misma consulta (ASM-005).",
+        "decision": "Ordenar la lista por fecha de creación ascendente, usando el número de ticket como criterio de desempate, e implementar paginación basada en offset/limit (20 por página) sobre esa misma clave de orden.",
+        "alternatives": [
+          "Paginación por cursor (keyset) sobre el mismo criterio de orden: más robusta ante inserciones concurrentes, pero añade complejidad no exigida explícitamente por el PRD para el volumen esperado.",
+          "Orden por fecha descendente (más reciente primero): no especificado por el PRD; se documenta como asunción reversible en ASM-005."
+        ]
+      },
+      {
+        "id": "ADR-006",
+        "title": "Visibilidad de cambios de estado mediante refresco manual/polling, sin tiempo real",
+        "context": "CON-001 señala una tensión entre la necesidad de negocio de 'ver cuándo están preparados' los tickets y la exclusión explícita de capacidades en tiempo real del alcance del producto.",
+        "decision": "Resolver la visibilidad mediante recarga manual (botón de reintento/actualizar) y/o polling periódico simple del lado del cliente, sin introducir websockets, SSE ni infraestructura de mensajería. Esta decisión se registra como asunción reversible pendiente de confirmación de negocio (ver openQuestions).",
+        "alternatives": [
+          "WebSockets/SSE para push en tiempo real: descartado explícitamente por estar fuera de alcance en el PRD.",
+          "Sin ningún mecanismo de actualización (solo carga inicial): insuficiente para la necesidad de negocio de detectar tickets listos."
+        ]
+      },
+      {
+        "id": "ADR-007",
+        "title": "Estrategia de pruebas en tres capas",
+        "context": "REQ-008 exige que el README documente comandos de pruebas unitarias, de integración y E2E, y varios requisitos (REQ-003, REQ-005, REQ-007) dependen de verificar lógica de negocio, autorización y seguridad de forma automatizada.",
+        "decision": "Adoptar tres capas de pruebas: unitarias para la lógica de la máquina de estados y validaciones de entrada; de integración para los endpoints de la API (incluyendo casos de autorización 401/403 y concurrencia); E2E para los flujos de UI críticos (login, crear ticket, filtrar/paginar, cancelar, accesibilidad por teclado).",
+        "alternatives": [
+          "Solo pruebas E2E: más costosas y lentas, insuficientes para cubrir casos de concurrencia y validación de entrada con la granularidad exigida por REQ-003 y REQ-007.",
+          "Solo pruebas unitarias sin integración/E2E: no cubre el comportamiento real de la API ni de la UI exigido explícitamente por REQ-008."
+        ]
+      }
+    ]
+  }
+}
