@@ -244,24 +244,131 @@ describe("static-landing check script", () => {
 		);
 		return { code: result.status, out: `${result.stdout}${result.stderr}` };
 	};
-	const page = (extra: string) =>
-		`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width"><title>T</title>${extra}</head><body></body></html>`;
+	const CSP =
+		"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'";
+	const LEGAL = ["aviso-legal", "politica-privacidad", "politica-cookies"];
+	const links = LEGAL.map((name) => `<a href="legal/${name}.html">${name}</a>`).join("");
+	const doc = (head: string, body = "") =>
+		`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width"><title>T</title><meta http-equiv="Content-Security-Policy" content="${CSP}"><link rel="stylesheet" href="tokens.css">${head}</head><body><a class="skip-link" href="#main">Saltar</a><main id="main"></main><footer>${links}${body}</footer></body></html>`;
+	const TOKENS = readFileSync(join(STATIC, "tokens.css"), "utf8");
+	const STYLES = readFileSync(join(STATIC, "styles.css"), "utf8");
+	const base = (overrides: Record<string, string> = {}): Record<string, string> => ({
+		"index.html": doc(""),
+		"tokens.css": TOKENS,
+		"styles.css": STYLES,
+		...Object.fromEntries(LEGAL.map((name) => [`legal/${name}.html`, legalDoc("")])),
+		...overrides,
+	});
+	const legalDoc = (head: string, body = "") =>
+		doc(head, body).replaceAll('href="tokens.css"', 'href="../tokens.css"').replaceAll('href="legal/', 'href="');
+	const page = (extra: string) => doc(extra);
+
+	it("passes the shipped template as is and reports pending legal markers as a warning", () => {
+		const result = run(STATIC);
+		expect(result.code).toBe(0);
+		expect(result.out).toMatch(/WARN.*\[PENDIENTE.*: \d+/);
+	});
 
 	it("passes when index.html is valid and local links resolve", () => {
-		const root = tree({
-			"index.html": page(
-				'<link rel="stylesheet" href="styles.css"><a href="https://example.com">x</a>',
-			),
-			"styles.css": "body{}",
-		});
+		const root = tree(
+			base({
+				"index.html": page('<link rel="stylesheet" href="styles.css"><a href="https://example.com">x</a>'),
+			}),
+		);
 		expect(run(root).code).toBe(0);
 	});
 
 	it("fails when index.html is missing or a local link is broken", () => {
 		expect(run(tree({ "other.html": "x" })).out).toContain("index.html does not exist");
-		const broken = run(tree({ "index.html": page('<link rel="stylesheet" href="missing.css">') }));
+		const broken = run(tree(base({ "index.html": page('<link rel="stylesheet" href="missing.css">') })));
 		expect(broken.code).toBe(1);
 		expect(broken.out).toContain('"missing.css" does not resolve');
+	});
+
+	it.each([
+		["a missing CSP meta", doc("").replace(/<meta http-equiv[^>]+>/, ""), "Content-Security-Policy"],
+		["an unsafe-inline CSP", doc("").replace("script-src 'self'", "script-src 'self' 'unsafe-inline'"), "unsafe"],
+		["an inline script", doc("<script>alert(1)</script>"), "inline <script>"],
+		["an inline event handler", doc("", '<button onclick="x()">b</button>'), "inline event handler"],
+		["an inline style attribute", doc("", '<p style="color:red">b</p>'), "inline style"],
+		["an inline style element", doc("<style>p{}</style>"), "inline <style>"],
+		["target=_blank without rel", doc("", '<a href="https://e.com" target="_blank">x</a>'), "noopener noreferrer"],
+		["target=_blank with only noopener", doc("", '<a href="https://e.com" target="_blank" rel="noopener">x</a>'), "noopener noreferrer"],
+		["a mixed-content http resource", doc("", '<img src="http://e.com/a.png" alt="">'), "http://"],
+		["an external script", doc('<script src="https://cdn.e.com/a.js"></script>'), "external"],
+		["an external stylesheet", doc('<link rel="stylesheet" href="//cdn.e.com/a.css">'), "external"],
+	])("fails on %s", (_name, html, expected) => {
+		const result = run(tree(base({ "index.html": html })));
+		expect(result.code).toBe(1);
+		expect(result.out).toContain(expected);
+	});
+
+	it("accepts target=_blank with rel noopener noreferrer", () => {
+		const html = doc("", '<a href="https://e.com" target="_blank" rel="noopener noreferrer">x</a>');
+		expect(run(tree(base({ "index.html": html }))).code).toBe(0);
+	});
+
+	it("applies the same rules to the legal pages", () => {
+		const result = run(tree(base({ "legal/aviso-legal.html": legalDoc("<script>x()</script>") })));
+		expect(result.code).toBe(1);
+		expect(result.out).toContain("legal/aviso-legal.html");
+	});
+
+	it("fails when a legal page is missing or not linked from index.html", () => {
+		const files = base();
+		delete files["legal/politica-cookies.html"];
+		expect(run(tree(files)).out).toContain("legal/politica-cookies.html does not exist");
+		const unlinked = run(tree(base({ "index.html": doc("").replace(links, "") })));
+		expect(unlinked.code).toBe(1);
+		expect(unlinked.out).toContain("index.html does not link legal/politica-privacidad.html");
+	});
+
+	it("counts [PENDIENTE markers as a warning without failing", () => {
+		const root = tree(base({ "legal/aviso-legal.html": legalDoc("", "<p>[PENDIENTE: titular] [PENDIENTE: NIF]</p>") }));
+		const result = run(root);
+		expect(result.code).toBe(0);
+		expect(result.out).toContain("WARN");
+		expect(result.out).toContain("2");
+		const clean = run(tree(base()));
+		expect(clean.out).not.toContain("WARN");
+	});
+
+	it("fails when a body text color pair is below 4.5:1 in either theme", () => {
+		const light = TOKENS.replace(/--color-muted:\s*#[0-9a-fA-F]{6}/, "--color-muted: #aaaaaa");
+		const lightRun = run(tree(base({ "tokens.css": light })));
+		expect(lightRun.code).toBe(1);
+		expect(lightRun.out).toContain("contrast");
+		const dark = TOKENS.replace(/(prefers-color-scheme: dark[\s\S]*?--color-text:\s*)#[0-9a-fA-F]{6}/, "$1#333333");
+		const darkRun = run(tree(base({ "tokens.css": dark })));
+		expect(darkRun.code).toBe(1);
+		expect(darkRun.out).toContain("dark");
+	});
+
+	it("fails when the stylesheets lack dark mode, reduced motion, focus-visible or tokens", () => {
+		const bare = run(tree(base({ "tokens.css": ":root{--color-bg:#ffffff;--color-text:#000000}", "styles.css": "body{}" })));
+		expect(bare.code).toBe(1);
+		for (const needle of ["prefers-color-scheme", "prefers-reduced-motion", ":focus-visible"]) {
+			expect(bare.out).toContain(needle);
+		}
+	});
+
+	it("ships the security headers file and operations doc with the full header set", () => {
+		const headers = readFileSync(join(STATIC, "_headers"), "utf8");
+		for (const needle of [
+			"Content-Security-Policy",
+			"frame-ancestors",
+			"Strict-Transport-Security",
+			"X-Content-Type-Options",
+			"Referrer-Policy",
+			"Permissions-Policy",
+		]) {
+			expect(headers).toContain(needle);
+		}
+		const doc = readFileSync(join(STATIC, "docs", "operations", "security-headers.md"), "utf8");
+		expect(doc).toContain("frame-ancestors");
+		expect(doc).toContain("Caddy");
+		const agents = readFileSync(join(STATIC, "AGENTS.md"), "utf8");
+		expect(agents).toContain("no inventar datos legales");
 	});
 
 	it("ships a valid default ui-routes.json and documents its format for agents", () => {
