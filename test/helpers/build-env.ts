@@ -103,6 +103,7 @@ export type ReviewScripts = {
 	code?: ScriptedResult[];
 	ux?: ScriptedResult[];
 	ui?: ScriptedResult[];
+	legal?: ScriptedResult[];
 	refuter?: ScriptedResult[];
 	approver?: ScriptedResult[];
 };
@@ -152,6 +153,7 @@ const REVIEW_SCRIPT_KEYS: Record<string, keyof ReviewScripts> = {
 	"reviewer-code": "code",
 	"reviewer-ux": "ux",
 	"reviewer-ui": "ui",
+	"reviewer-legal": "legal",
 	"review-refuter": "refuter",
 	approver: "approver",
 };
@@ -174,6 +176,9 @@ const autoOutput = (request: ProviderRequest): unknown => {
 			findings: [],
 			requiresReviewAck: [],
 		};
+	}
+	if (request.role === "reviewer-legal") {
+		return { area: "legal", verdict: "pass", findings: [], requiresReviewAck: [] };
 	}
 	if (request.role === "reviewer-code") {
 		return {
@@ -262,6 +267,7 @@ export const createBuildEnv = async (options: BuildEnvOptions) => {
 		"reviewer-code": options.reviewers?.code ?? [],
 		"reviewer-ux": options.reviewers?.ux ?? [],
 		"reviewer-ui": options.reviewers?.ui ?? [],
+		"reviewer-legal": options.reviewers?.legal ?? [],
 		"review-refuter": options.reviewers?.refuter ?? [],
 		approver: options.reviewers?.approver ?? [],
 	});
@@ -399,6 +405,7 @@ export const createChainEnv = (options: ChainEnvOptions) => {
 		"reviewer-code": options.reviewers?.code ?? [],
 		"reviewer-ux": options.reviewers?.ux ?? [],
 		"reviewer-ui": options.reviewers?.ui ?? [],
+		"reviewer-legal": options.reviewers?.legal ?? [],
 		"review-refuter": options.reviewers?.refuter ?? [],
 		approver: options.reviewers?.approver ?? [],
 	});

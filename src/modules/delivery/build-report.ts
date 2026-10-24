@@ -27,7 +27,7 @@ export type ReportOptions = { preDelivery?: boolean };
 export const FINAL_CHECK_CWD = "integration-final";
 export const DELIVERY_CHECK_PREFIX = "delivery-";
 
-const AREA_ORDER = ["security", "code", "ux", "ui"];
+const AREA_ORDER = ["security", "code", "legal", "ux", "ui"];
 const SEVERITY_ORDER = ["critical", "high", "medium", "low"];
 const SEVERE = new Set(["critical", "high"]);
 const UI_EVIDENCE_FILE = "ui-evidence.json";
@@ -41,6 +41,7 @@ const PHASE_OF_ROLE: Record<string, "planning" | "build" | "review"> = {
 	"reviewer-code": "review",
 	"reviewer-ux": "review",
 	"reviewer-ui": "review",
+	"reviewer-legal": "review",
 	"review-refuter": "review",
 	approver: "review",
 };

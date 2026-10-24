@@ -510,6 +510,7 @@ describe("role assets", () => {
 										"reviewer-code": "sonnet",
 										"reviewer-ux": "sonnet",
 										"reviewer-ui": "sonnet",
+										"reviewer-legal": "sonnet",
 										"review-refuter": "sonnet",
 										approver: "sonnet",
 									}),

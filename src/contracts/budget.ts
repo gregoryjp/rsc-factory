@@ -32,6 +32,7 @@ export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
 		"reviewer-code": 0.5,
 		"reviewer-ux": 0.5,
 		"reviewer-ui": 0.5,
+		"reviewer-legal": 0.5,
 		"review-refuter": 0.5,
 		approver: 0.2,
 	},

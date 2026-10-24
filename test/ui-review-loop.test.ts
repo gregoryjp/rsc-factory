@@ -151,6 +151,7 @@ describe("UX and UI reviewers in the build loop", () => {
 		expect(reviewsOf(env).map((r) => [r.area, r.verdict])).toEqual([
 			["security", "pass"],
 			["code", "pass"],
+			["legal", "not_applicable"],
 			["ux", "pass"],
 			["ui", "pass"],
 		]);
@@ -180,6 +181,7 @@ describe("UX and UI reviewers in the build loop", () => {
 		expect(reviewsOf(env).map((r) => [r.area, r.verdict, r.reason])).toEqual([
 			["security", "pass", null],
 			["code", "pass", null],
+			["legal", "not_applicable", "no personal data processing detected"],
 			["ux", "not_applicable", "no UI changes"],
 			["ui", "not_applicable", "no UI changes"],
 		]);
@@ -243,7 +245,7 @@ describe("UX and UI reviewers in the build loop", () => {
 			reviewsOf(env)
 				.filter((r) => r.commitSha === finalHead)
 				.map((r) => r.area),
-		).toEqual(["security", "code", "ux", "ui"]);
+		).toEqual(["security", "code", "legal", "ux", "ui"]);
 	});
 
 	it("counts each ux and ui call against the provider-call budget", async () => {

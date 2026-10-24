@@ -12,6 +12,11 @@ export const RISK_RULES: Record<string, RiskRule> = {
 	tenant: { pattern: /tenant|multiempresa/i, scope: "both" },
 	secret: { pattern: /secret|credential|api[-_ ]?key|\.env/i, scope: "both" },
 	delete: { pattern: /delete|destroy|borrar|eliminar/i, scope: "both" },
+	"personal-data": {
+		pattern:
+			/personal data|datos personales|privacy|privacidad|consent|gdpr|rgpd|cookie|tracking|delete account|eliminar cuenta|borrar cuenta/i,
+		scope: "both",
+	},
 	authorization: { pattern: /authoriz|autoriz|permission|permiso|rbac/i, scope: "both" },
 };
 

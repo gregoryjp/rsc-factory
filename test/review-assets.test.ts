@@ -72,4 +72,84 @@ describe("reviewer prompts", () => {
 		expect(args[args.indexOf("--permission-mode") + 1]).toBe("dontAsk");
 		expect(args.join(" ")).not.toMatch(/Edit|Write|Bash|acceptEdits/);
 	});
+
+	it("builds the same read-only argv for the legal reviewer", () => {
+		const args = buildClaudeArgs({
+			role: "reviewer-legal",
+			prompt: "p",
+			systemPrompt: "s",
+			jsonSchema: {},
+			model: "sonnet",
+			maxBudgetUsd: 0.5,
+			tools: ["Read", "Glob", "Grep"],
+			cwd: "/x",
+			timeoutMs: 1000,
+			restricted: true,
+			permissionMode: "dontAsk",
+		});
+		expect(args[args.indexOf("--tools") + 1]).toBe("Read,Glob,Grep");
+		expect(args.join(" ")).not.toMatch(/Edit|Write|Bash|acceptEdits/);
+	});
+});
+
+describe("legal reviewer prompt", () => {
+	const text = () => prompt("reviewer-legal.md");
+
+	it("is original text without third-party attribution and stays small", () => {
+		expect(text()).not.toMatch(/MIT License|rsc-harness/);
+		expect(Buffer.byteLength(text())).toBeLessThan(8 * 1024);
+	});
+
+	it("flags risks only, never gives legal advice, and requires evidence", () => {
+		const body = text();
+		expect(body).toContain("legal advice");
+		expect(body).toContain("compliance");
+		expect(body).toContain("### High and critical require proof");
+		expect(body).toContain("## Prompt defense");
+		expect(body).toContain("evidence");
+	});
+
+	it("covers the privacy checklist", () => {
+		const body = text().toLowerCase();
+		for (const topic of [
+			"personal-data inventory",
+			"lawful basis",
+			"minimization",
+			"retention",
+			"erasure",
+			"access",
+			"cookies",
+			"children",
+			"processors",
+			"privacy policy",
+			"legal notice",
+			"hash",
+			"logging",
+		]) {
+			expect(body).toContain(topic);
+		}
+	});
+});
+
+describe("spec-writer personal-data rule", () => {
+	it("asks for explicit assumptions instead of invented legal facts", () => {
+		const text = prompt("spec-writer.md");
+		expect(text).toContain("retention period");
+		expect(text).toContain("legal basis");
+		expect(text).toContain("deletion path");
+		expect(text).toContain("Never invent legal facts");
+	});
+});
+
+describe("legal role configuration", () => {
+	it("has a model assignment and a budget ceiling", () => {
+		const roles: Record<string, string> = JSON.parse(
+			readFileSync(join(REPO_ROOT, "factory", "config", "roles.json"), "utf8"),
+		);
+		const budget: { maxCallUsd: Record<string, number> } = JSON.parse(
+			readFileSync(join(REPO_ROOT, "factory", "config", "budget.json"), "utf8"),
+		);
+		expect(roles["reviewer-legal"]).toBe("sonnet");
+		expect(budget.maxCallUsd["reviewer-legal"]).toBe(0.5);
+	});
 });

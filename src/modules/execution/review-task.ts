@@ -17,6 +17,7 @@ import type { PreviewPolicy } from "../../domain/checks/policy.js";
 import type { GateFailure } from "../../domain/planning/gates.js";
 import { dedupFindings } from "../../domain/review/dedup.js";
 import { evaluateGate, gatePreconditions } from "../../domain/review/gate.js";
+import { legalApplicability } from "../../domain/review/legal.js";
 import {
 	applyRefutation,
 	type FindingState,
@@ -56,7 +57,7 @@ import {
 import { HALT_BY_ERROR_CODE, type HaltReason, type StopInfo, stopInfoOf } from "./stop.js";
 
 export const DEFAULT_REVIEW_DIFF_MAX_BYTES = 200 * 1024;
-export const REVIEW_AREAS: readonly ReviewArea[] = ["security", "code", "ux", "ui"];
+export const REVIEW_AREAS: readonly ReviewArea[] = ["security", "code", "legal", "ux", "ui"];
 const UI_AREAS: readonly ReviewArea[] = ["ux", "ui"];
 const EVIDENCE_DIR = "ui-evidence";
 
@@ -65,6 +66,7 @@ const REVIEWER_ROLES: Record<ReviewArea, Role> = {
 	code: "reviewer-code",
 	ux: "reviewer-ux",
 	ui: "reviewer-ui",
+	legal: "reviewer-legal",
 };
 
 export type ReviewDeps = CheckDeps & PlanDeps;
@@ -552,6 +554,31 @@ const uiStage = async (
 	return ok(undefined);
 };
 
+const legalStage = async (
+	deps: ReviewDeps,
+	input: ReviewInput,
+	round: number,
+	context: { diff: string; checks: CheckSummary[]; requires: RequiresReviewEntry[] },
+): Promise<Result<StoredReview, ReviewResult>> => {
+	const names = deps.git.diffNames(input.target, input.build.baseCommit, input.head);
+	if (!names.ok) return blocked("review_diff_failed", names.error.message);
+	const applicability = legalApplicability({
+		templateId: input.templateId,
+		changedFiles: names.value,
+		diff: context.diff,
+		requirementsText: [input.task.title, ...input.task.acceptance, input.pack].join("\n"),
+	});
+	if (applicability.applies) return reviewerStage(deps, input, round, "legal", context);
+	const persisted = persistReview(
+		deps,
+		input,
+		round,
+		"legal",
+		engineOutput("legal", "not_applicable", applicability.reason),
+	);
+	return persisted.ok ? persisted : blocked("review_persist_failed", persisted.error.message);
+};
+
 type RoundPlan = {
 	round: number;
 	reused: Map<ReviewArea, StoredReview>;
@@ -604,7 +631,10 @@ export const runReviews = async (deps: ReviewDeps, input: ReviewInput): Promise<
 	};
 	const roundReviews = new Map<ReviewArea, StoredReview>(plan.reused);
 	for (const area of plan.toRun.filter((candidate) => !UI_AREAS.includes(candidate))) {
-		const stored = await reviewerStage(deps, input, plan.round, area, context);
+		const stored =
+			area === "legal"
+				? await legalStage(deps, input, plan.round, context)
+				: await reviewerStage(deps, input, plan.round, area, context);
 		if (!stored.ok) return stored.error;
 		roundReviews.set(area, stored.value);
 	}

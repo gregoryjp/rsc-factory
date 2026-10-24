@@ -54,10 +54,11 @@ Export a CSV
 - Checks:
   - `node --test` -> exit 1 (worktree-red, commit `<sha1:3>`, SIN aislamiento, log `runs/run_2/checks/chk_13.log`, sha256 `<sha256:4>`)
   - `node --test` -> exit 0 (worktree-green, commit `<sha1:5>`, SIN aislamiento, log `runs/run_2/checks/chk_15.log`, sha256 `<sha256:6>`)
-  - `node --test` -> exit 0 (integration, commit `<sha1:2>`, SIN aislamiento, log `runs/run_2/checks/chk_29.log`, sha256 `<sha256:7>`)
+  - `node --test` -> exit 0 (integration, commit `<sha1:2>`, SIN aislamiento, log `runs/run_2/checks/chk_31.log`, sha256 `<sha256:7>`)
 - Revisiones:
   - security: pass sobre `<sha1:5>`
   - code: pass sobre `<sha1:5>`
+  - legal: not_applicable (no personal data processing detected) sobre `<sha1:5>`
   - ux: not_applicable (no UI changes) sobre `<sha1:5>`
   - ui: not_applicable (no UI changes) sobre `<sha1:5>`
 - Hallazgos por severidad: ninguno; aceptados abiertos (no graves)=0

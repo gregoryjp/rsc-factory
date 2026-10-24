@@ -88,6 +88,7 @@ describe("reviewers in the build loop", () => {
 		expect(reviews.map((r) => [r.area, r.verdict, r.commitSha, r.specVersion])).toEqual([
 			["security", "pass", taskHead, 1],
 			["code", "pass", taskHead, 1],
+			["legal", "not_applicable", taskHead, 1],
 			["ux", "not_applicable", taskHead, 1],
 			["ui", "not_applicable", taskHead, 1],
 		]);
@@ -260,6 +261,7 @@ describe("findings, refuter and repair", () => {
 		expect(reviews.filter((r) => r.commitSha === taskHead).map((r) => r.area)).toEqual([
 			"security",
 			"code",
+			"legal",
 			"ux",
 			"ui",
 		]);
@@ -299,6 +301,7 @@ describe("findings, refuter and repair", () => {
 			expect(reviews.filter((r) => r.commitSha === head).map((r) => r.area)).toEqual([
 				"security",
 				"code",
+				"legal",
 				"ux",
 				"ui",
 			]);
@@ -319,7 +322,7 @@ describe("findings, refuter and repair", () => {
 		expect(env.events("task.review_gate")).toHaveLength(0);
 		const second = await run(env, { maxProviderCalls: 1 });
 		expect(second.stoppedBecause).toBe("max_provider_calls");
-		expect(reviewsOf(env).map((r) => r.area)).toEqual(["security", "code", "ux", "ui"]);
+		expect(reviewsOf(env).map((r) => r.area)).toEqual(["security", "code", "legal", "ux", "ui"]);
 		expect(env.roleCalls("approver")).toHaveLength(0);
 		expect(env.buildOf("add")?.phase).toBe("reviewing");
 		const third = await run(env);
