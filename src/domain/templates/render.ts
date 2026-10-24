@@ -41,9 +41,13 @@ export const toProductSlug = (name: string): string => {
 };
 
 const TEMPLATE_BY_PRESETS: Readonly<Record<string, string>> = {
-	"backend-express-kimmbo+web-react-vite": "fullstack-kimmbo",
-	"static-landing": "static-landing",
+	"backend-express-kimmbo+web-react-vite": "apiweb",
+	"backend-express-kimmbo": "api",
+	"static-landing": "landing",
+	"mobile-expo": "mobile",
 };
+
+export const SUPPORTED_PRESET_COMBINATIONS: readonly string[] = Object.keys(TEMPLATE_BY_PRESETS);
 
 export const selectTemplateId = (
 	presetIds: readonly string[],

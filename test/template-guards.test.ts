@@ -2,10 +2,11 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parseUiRoutes } from "../src/domain/review/ui.js";
 import { makeTempDir, REPO_ROOT } from "./helpers/env.js";
 
-const API = join(REPO_ROOT, "factory", "templates", "fullstack-kimmbo", "api");
-const STATIC = join(REPO_ROOT, "factory", "templates", "static-landing");
+const API = join(REPO_ROOT, "factory", "templates", "apiweb", "api");
+const STATIC = join(REPO_ROOT, "factory", "templates", "landing");
 
 const tree = (files: Record<string, string>): string => {
 	const root = makeTempDir();
@@ -23,7 +24,7 @@ const guard = (script: string, root: string) => {
 	return { code: run.status, out: `${run.stdout}${run.stderr}` };
 };
 
-describe("fullstack-kimmbo guard: check-layers", () => {
+describe("apiweb guard: check-layers", () => {
 	it("rejects a service importing express and a controller importing prisma or repositories", () => {
 		const root = tree({
 			"src/modules/a/services/a.service.ts":
@@ -56,7 +57,7 @@ describe("fullstack-kimmbo guard: check-layers", () => {
 	});
 });
 
-describe("fullstack-kimmbo guard: check-layers bypasses", () => {
+describe("apiweb guard: check-layers bypasses", () => {
 	const bad = (files: Record<string, string>, expectedFile: string) => {
 		const result = guard("check-layers.mjs", tree(files));
 		expect(result.code, result.out).toBe(1);
@@ -146,7 +147,7 @@ describe("fullstack-kimmbo guard: check-layers bypasses", () => {
 	});
 });
 
-describe("fullstack-kimmbo guard: check-boundaries bypasses", () => {
+describe("apiweb guard: check-boundaries bypasses", () => {
 	it("rejects side-effect, export-from, dynamic and require deep imports and scans .mts", () => {
 		for (const [name, code] of [
 			["a.ts", 'import "../../a/services/a.service.js";\n'],
@@ -174,7 +175,7 @@ describe("fullstack-kimmbo guard: check-boundaries bypasses", () => {
 	});
 });
 
-describe("fullstack-kimmbo guard: check-boundaries", () => {
+describe("apiweb guard: check-boundaries", () => {
 	it("rejects deep imports into another module and accepts index imports", () => {
 		const bad = tree({
 			"src/modules/a/index.ts": "export {};\n",
@@ -193,7 +194,7 @@ describe("fullstack-kimmbo guard: check-boundaries", () => {
 	});
 });
 
-describe("fullstack-kimmbo guard: check-raw-sql", () => {
+describe("apiweb guard: check-raw-sql", () => {
 	it("rejects unsafe and function-call raw SQL but accepts tagged templates", () => {
 		const bad = tree({
 			"src/a.ts": "await prisma.$queryRawUnsafe(sql);\n",
@@ -209,11 +210,11 @@ describe("fullstack-kimmbo guard: check-raw-sql", () => {
 });
 
 const typescriptInstalled = existsSync(
-	join(REPO_ROOT, "factory", "templates", "fullstack-kimmbo", "node_modules", "typescript"),
+	join(REPO_ROOT, "factory", "templates", "apiweb", "node_modules", "typescript"),
 );
 
 describe.skipIf(!typescriptInstalled)(
-	`fullstack-kimmbo guard: check-comments (${typescriptInstalled ? "typescript available" : "SKIPPED: template node_modules not installed; covered by the Docker acceptance"})`,
+	`apiweb guard: check-comments (${typescriptInstalled ? "typescript available" : "SKIPPED: template node_modules not installed; covered by the Docker acceptance"})`,
 	() => {
 		it("rejects line and block comments and accepts comment-free code", () => {
 			const bad = tree({
@@ -263,6 +264,39 @@ describe("static-landing check script", () => {
 		expect(broken.out).toContain('"missing.css" does not resolve');
 	});
 
+	it("ships a valid default ui-routes.json and documents its format for agents", () => {
+		const routes = parseUiRoutes(readFileSync(join(STATIC, "ui-routes.json"), "utf8"));
+		expect(routes).toEqual({ ok: true, value: [{ path: "/", as: null }] });
+		const agents = readFileSync(join(STATIC, "AGENTS.md"), "utf8");
+		expect(agents).toContain("ui-routes.json");
+		expect(agents).toContain('["/"]');
+	});
+
+	it("ships a valid mobile ui-routes.json and documents its format for agents", () => {
+		const dir = join(REPO_ROOT, "factory", "templates", "mobile");
+		const routes = parseUiRoutes(readFileSync(join(dir, "ui-routes.json"), "utf8"));
+		expect(routes).toEqual({ ok: true, value: [{ path: "/", as: null }] });
+		const agents = readFileSync(join(dir, "AGENTS.md"), "utf8");
+		expect(agents).toContain("ui-routes.json");
+		expect(agents).toContain('["/"]');
+	});
+
+	it("runs product tests in npm run check and npm test: a failing test under test/ fails both", () => {
+		const root = makeTempDir();
+		spawnSync("cp", ["-R", `${STATIC}/.`, root]);
+		const npm = (script: string) =>
+			spawnSync("npm", ["run", "-s", script], { cwd: root, encoding: "utf8" }).status;
+		expect(npm("check")).toBe(0);
+		expect(npm("test")).toBe(0);
+		mkdirSync(join(root, "test"), { recursive: true });
+		writeFileSync(
+			join(root, "test", "red.test.mjs"),
+			'import { test } from "node:test";\nimport assert from "node:assert/strict";\ntest("red", () => assert.equal(1, 2));\n',
+		);
+		expect(npm("check")).not.toBe(0);
+		expect(npm("test")).not.toBe(0);
+	});
+
 	it("fails when lang, title or viewport are missing", () => {
 		const result = run(tree({ "index.html": "<html><head></head><body></body></html>" }));
 		expect(result.code).toBe(1);
@@ -287,8 +321,9 @@ describe("template .gitignore", () => {
 	};
 
 	it.each([
-		["fullstack-kimmbo", join(REPO_ROOT, "factory", "templates", "fullstack-kimmbo")],
-		["static-landing", STATIC],
+		["apiweb", join(REPO_ROOT, "factory", "templates", "apiweb")],
+		["landing", STATIC],
+		["mobile", join(REPO_ROOT, "factory", "templates", "mobile")],
 	])("%s ignores every .env variant and .envrc but keeps the examples", (_id, dir) => {
 		const result = ignored(dir, [
 			".env",

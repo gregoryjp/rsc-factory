@@ -420,37 +420,49 @@ const engineOutput = (
 
 const unavailable = (reason: string): PreviewOutcome => ({ status: "unavailable", reason });
 
-const captureEvidence = async (deps: ReviewDeps, input: ReviewInput): Promise<PreviewOutcome> => {
+type Evidence = { outcome: PreviewOutcome; configInvalid: boolean };
+
+const infra = (outcome: PreviewOutcome): Evidence => ({ outcome, configInvalid: false });
+const productConfig = (reason: string): Evidence => ({
+	outcome: unavailable(reason),
+	configInvalid: true,
+});
+
+const captureEvidence = async (deps: ReviewDeps, input: ReviewInput): Promise<Evidence> => {
 	if (!deps.preview) {
-		return unavailable("no browser preview is available with the selected runner");
+		return infra(unavailable("no browser preview is available with the selected runner"));
 	}
 	if (!input.preview) {
-		return unavailable(`the check policy defines no preview for template ${input.templateId}`);
+		return infra(
+			unavailable(`the check policy defines no preview for template ${input.templateId}`),
+		);
 	}
 	let routesText: string | null = null;
 	if (input.preview.routesFile !== undefined) {
 		const shown = deps.git.showFile(input.target, input.head, input.preview.routesFile);
 		if (!shown.ok)
-			return unavailable(`could not read ${input.preview.routesFile}: ${shown.error.message}`);
+			return infra(
+				unavailable(`could not read ${input.preview.routesFile}: ${shown.error.message}`),
+			);
 		routesText = shown.value;
 	}
 	const routes = parseUiRoutes(routesText);
-	if (!routes.ok) return unavailable(routes.error.message);
+	if (!routes.ok) return productConfig(routes.error.message);
 	let authText: string | null = null;
 	if (input.preview.authFile !== undefined) {
 		const shown = deps.git.showFile(input.target, input.head, input.preview.authFile);
 		if (!shown.ok)
-			return unavailable(`could not read ${input.preview.authFile}: ${shown.error.message}`);
+			return infra(unavailable(`could not read ${input.preview.authFile}: ${shown.error.message}`));
 		authText = shown.value;
 	}
 	const auth = parseUiAuth(authText);
-	if (!auth.ok) return unavailable(auth.error.message);
+	if (!auth.ok) return productConfig(auth.error.message);
 	const roleCheck = checkRoutesAuth(routes.value, auth.value);
-	if (!roleCheck.ok) return unavailable(roleCheck.error.message);
+	if (!roleCheck.ok) return productConfig(roleCheck.error.message);
 	const dir = join(deps.factoryHome, "runs", input.runId, "preview-work", deps.ids("pv"));
 	try {
 		const snap = deps.git.snapshot(input.target, input.head, dir);
-		if (!snap.ok) return unavailable(snap.error.message);
+		if (!snap.ok) return infra(unavailable(snap.error.message));
 		const outcome = await deps.preview.capture({
 			runId: input.runId,
 			commitSha: input.head,
@@ -460,11 +472,13 @@ const captureEvidence = async (deps: ReviewDeps, input: ReviewInput): Promise<Pr
 			auth: auth.value,
 			outDir: join(deps.factoryHome, "runs", input.runId, "ui", input.head),
 		});
-		if (outcome.status !== "captured") return outcome;
+		if (outcome.status !== "captured") return infra(outcome);
 		const missing = unavailableEntries(outcome.evidence);
-		return missing.length === 0
-			? outcome
-			: unavailable(`incomplete browser evidence: ${missing.slice(0, 3).join("; ")}`);
+		return infra(
+			missing.length === 0
+				? outcome
+				: unavailable(`incomplete browser evidence: ${missing.slice(0, 3).join("; ")}`),
+		);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
@@ -508,7 +522,8 @@ const uiStage = async (
 		templateId: input.templateId,
 		changedFiles: names.value,
 	});
-	const outcome = applicability.applies ? await captureEvidence(deps, input) : undefined;
+	const evidence = applicability.applies ? await captureEvidence(deps, input) : undefined;
+	const outcome = evidence?.outcome;
 	if (outcome) recordEvidence(deps, input, outcome);
 	for (const area of areas) {
 		if (outcome?.status === "captured") {
@@ -530,6 +545,9 @@ const uiStage = async (
 		const persisted = persistReview(deps, input, round, area, output);
 		if (!persisted.ok) return blocked("review_persist_failed", persisted.error.message);
 		into.set(area, persisted.value);
+	}
+	if (evidence?.configInvalid === true && outcome?.status === "unavailable") {
+		return blocked("ui_config_invalid", `product UI configuration is invalid: ${outcome.reason}`);
 	}
 	return ok(undefined);
 };

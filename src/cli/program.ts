@@ -402,22 +402,25 @@ export const runCli = async (
 		.argument("<runId>")
 		.argument("<taskKey>")
 		.option("--note <text>", "operator guidance passed to the builder (trusted input)")
+		.option("--force", "operator override for a non-retryable reason, recorded in the history")
 		.option("--json", "machine-readable output")
-		.action((runId: string, taskKey: string, opts: { note?: string; json?: boolean }) =>
-			withRuntime(({ deps }) => {
-				handle(
-					retryTask(deps, {
-						runId,
-						taskKey,
-						maxRetries: config.maxTaskRetries,
-						...(opts.note === undefined ? {} : { note: opts.note }),
-					}),
-					(summary) =>
-						print(opts.json === true, { runId, ...summary }, () => [
-							`Task ${summary.key} is READY again (retry ${summary.retries}; was blocked by ${summary.reason}). Run \`factory build ${runId}\` to continue.`,
-						]),
-				);
-			}),
+		.action(
+			(runId: string, taskKey: string, opts: { note?: string; json?: boolean; force?: boolean }) =>
+				withRuntime(({ deps }) => {
+					handle(
+						retryTask(deps, {
+							runId,
+							taskKey,
+							maxRetries: config.maxTaskRetries,
+							force: opts.force === true,
+							...(opts.note === undefined ? {} : { note: opts.note }),
+						}),
+						(summary) =>
+							print(opts.json === true, { runId, ...summary }, () => [
+								`Task ${summary.key} is READY again (retry ${summary.retries}; was blocked by ${summary.reason}). Run \`factory build ${runId}\` to continue.`,
+							]),
+					);
+				}),
 		);
 
 	program

@@ -5,6 +5,7 @@ import type {
 	SpecOutput,
 } from "../../contracts/planning.js";
 import { err, type Failure, ok, type Result } from "../../shared/result.js";
+import { SUPPORTED_PRESET_COMBINATIONS, selectTemplateId } from "../templates/render.js";
 import { isSafeExpectedPath } from "./paths.js";
 import { isPresetId, PRESETS } from "./presets.js";
 
@@ -76,6 +77,11 @@ export const validateArchitecture = (
 			}
 		}
 	}
+	if (errors.length === 0 && !selectTemplateId(architecture.presetIds).ok) {
+		errors.push(
+			`Preset combination ${[...architecture.presetIds].sort().join("+")} has no product template; choose exactly one supported combination: ${SUPPORTED_PRESET_COMBINATIONS.join(" | ")}`,
+		);
+	}
 	for (const id of duplicates(architecture.decisions.map((d) => d.id))) {
 		errors.push(`Duplicate decision id ${id}`);
 	}
@@ -98,11 +104,21 @@ const topologicalOrder = (tasks: readonly PlannedTask[]): Ordering => {
 	return { ordered };
 };
 
+const MIN_TASK_CAP = 3;
+const TASKS_PER_MUST = 2;
+
 export const validatePlan = (
 	plan: PlannerOutput,
 	spec: SpecOutput,
 ): Result<PlannedTask[], GateFailure> => {
 	const errors: string[] = [];
+	const mustCount = spec.requirements.filter((r) => r.priority === "must").length;
+	const maxTasks = Math.max(MIN_TASK_CAP, TASKS_PER_MUST * mustCount);
+	if (plan.tasks.length > maxTasks) {
+		errors.push(
+			`The plan has ${plan.tasks.length} tasks; use at most ${maxTasks} (merge setup, scaffolding and QA-only work into behavior tasks)`,
+		);
+	}
 	const keys = plan.tasks.map((t) => t.key);
 	for (const key of duplicates(keys)) errors.push(`Duplicate task key ${key}`);
 	const knownReqs = new Set(spec.requirements.map((r) => r.id));

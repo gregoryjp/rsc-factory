@@ -210,7 +210,7 @@ describe("buildBootstrapOnly", () => {
 		const built = await buildBootstrapOnly(deps, { runId });
 		if (!built.ok) throw new Error(built.error.message);
 		expect(built.value.passed).toBe(true);
-		expect(built.value.bootstrap.templateId).toBe("fullstack-kimmbo");
+		expect(built.value.bootstrap.templateId).toBe("apiweb");
 		expect(calls.map((c) => c.argv)).toEqual([
 			["npm", "ci"],
 			["npm", "run", "check"],

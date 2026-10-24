@@ -7,6 +7,7 @@ export const DEFAULT_MAX_TASK_RETRIES = 2;
 
 export const RETRYABLE_REASONS: readonly string[] = [
 	"review_findings_open",
+	"ui_config_invalid",
 	"repairs_exhausted",
 	"green_not_reached",
 	"red_not_observed",
@@ -21,7 +22,7 @@ export type RetrySummary = { key: string; retries: number; reason: string };
 
 export const retryTask = (
 	deps: AppDeps,
-	input: { runId: string; taskKey: string; note?: string; maxRetries?: number },
+	input: { runId: string; taskKey: string; note?: string; maxRetries?: number; force?: boolean },
 ): Result<RetrySummary, Failure<string>> => {
 	const { storage, clock } = deps;
 	const note = input.note?.trim() ?? "";
@@ -47,10 +48,11 @@ export const retryTask = (
 		}
 		const build = storage.taskBuilds.get(task.id);
 		const reason = build?.blockedReason ?? meta.blockedReason ?? "unknown";
-		if (!RETRYABLE_REASONS.includes(reason)) {
+		const forced = input.force === true && !RETRYABLE_REASONS.includes(reason);
+		if (!RETRYABLE_REASONS.includes(reason) && !forced) {
 			return fail(
 				"retry_not_allowed",
-				`Task ${meta.key} is blocked by ${reason}, which is not retryable`,
+				`Task ${meta.key} is blocked by ${reason}, which is not retryable (an operator may override with --force after inspecting it)`,
 			);
 		}
 		const used = storage.retries.count(task.id);
@@ -78,6 +80,7 @@ export const retryTask = (
 			payload: {
 				key: meta.key,
 				reason,
+				forced,
 				note: note === "" ? null : note,
 				retries: used + 1,
 				previous: {

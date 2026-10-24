@@ -116,9 +116,10 @@ const touchesOtherWorkspace = (path: string): boolean => {
 };
 
 const UI_PATH_RULES: Record<string, (path: string) => boolean> = {
-	"fullstack-kimmbo": (path) =>
-		touchesWeb(path) || ROOT_UI_FILE.test(path) || touchesOtherWorkspace(path),
-	"static-landing": (path) => !isDocPath(path),
+	apiweb: (path) => touchesWeb(path) || ROOT_UI_FILE.test(path) || touchesOtherWorkspace(path),
+	landing: (path) => !isDocPath(path),
+	mobile: (path) => !isDocPath(path),
+	api: () => false,
 };
 
 export type UiApplicability = { applies: true } | { applies: false; reason: string };

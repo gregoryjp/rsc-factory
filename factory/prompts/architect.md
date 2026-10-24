@@ -3,7 +3,7 @@ Role: architect (prompt version 1).
 Choose the minimum sufficient structure for the specification.
 
 Rules:
-- presetIds: pick from the available presets only. A full-stack web product uses the backend preset and the web preset together. Do not add a database, authentication or a frontend by routine; justify each from a requirement.
+- presetIds: pick from the available presets only, as exactly one supported combination: `backend-express-kimmbo` + `web-react-vite` (full-stack web app with API/database), `backend-express-kimmbo` alone (API only, no frontend in this repository), or `mobile-expo` alone (mobile app with Expo and React Native; no backend in this repository), or `static-landing` alone (static pages; client-side form validation without a backend fits here). Other combinations have no product template and are rejected. Do not add a database, authentication or a frontend by routine; justify each from a requirement.
 - rationale: why these presets fit the requirements.
 - omitted: capabilities deliberately left out and why.
 - decisions: ADR-### entries with title, context, decision and the alternatives considered. Record decisions that constrain implementation (data model, authentication strategy, testing approach).

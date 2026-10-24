@@ -375,8 +375,36 @@ describe("integration (G5)", () => {
 
 describe("dependencies, limits and resume", () => {
 	it("keeps a dependent PENDING behind a BLOCKED task and promotes dependents when a task is DONE", async () => {
+		const twoMusts = {
+			requirements: [
+				{
+					id: "REQ-001",
+					text: "Do it",
+					acceptance: ["Works"],
+					priority: "must" as const,
+					sourceRef: "PRD",
+				},
+				{
+					id: "REQ-002",
+					text: "Also",
+					acceptance: ["Works"],
+					priority: "must" as const,
+					sourceRef: "PRD",
+				},
+			],
+			assumptions: [],
+			contradictions: [],
+			outOfScope: [],
+			openQuestions: [],
+		};
 		const env = await createBuildEnv({
-			tasks: [task("a"), task("b", ["a"]), task("c"), task("d", ["c"])],
+			spec: twoMusts,
+			tasks: [
+				task("a"),
+				task("b", ["a"]),
+				task("c", [], ["REQ-002"]),
+				task("d", ["c"], ["REQ-002"]),
+			],
 			builder: [
 				blockedByBuilder(),
 				completed(redTest("c")),

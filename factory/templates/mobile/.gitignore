@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.npm-cache
+.env
+.env.*
+!.env.example
+!.env.*.example
+!**/.env.example
+.envrc
+.expo

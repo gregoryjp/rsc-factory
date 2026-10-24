@@ -11,11 +11,13 @@ import {
 	type SpecOutput,
 	SpecOutputSchema,
 } from "../../contracts/planning.js";
+import { TemplateManifestSchema } from "../../contracts/templates.js";
 import { blockedTaskReasons, mustRequirementsAllBlocked } from "../../domain/planning/blocking.js";
 import { validateArchitecture, validatePlan, validateSpec } from "../../domain/planning/gates.js";
 import { renderDecisionMarkdown, renderSpecMarkdown } from "../../domain/planning/render.js";
 import { extractDeclaredReqIds, findUnparsedReqTokens } from "../../domain/planning/req-ids.js";
 import { applyRiskFloor } from "../../domain/planning/risk.js";
+import { selectTemplateId } from "../../domain/templates/render.js";
 import { sha256Of } from "../../shared/hash.js";
 import { err, fail, ok, type Result } from "../../shared/result.js";
 import { reconcileStaleReservations, STALE_RESERVATION_MS } from "../budget/reconcile.js";
@@ -67,6 +69,15 @@ const ArchitectureFileSchema = z.strictObject({
 });
 
 const PLAN_PRODUCER = "planner";
+
+const templateProvides = (deps: PlanDeps, presetIds: readonly string[]): string[] => {
+	const templateId = selectTemplateId(presetIds);
+	if (!templateId.ok) return [];
+	const manifest = deps.factoryFiles.read(`factory/templates/${templateId.value}/template.json`);
+	if (!manifest.ok) return [];
+	const parsed = parseJson(TemplateManifestSchema, manifest.value.content);
+	return parsed?.provides ?? [];
+};
 
 const ROLE_ERROR_EFFECT: Record<string, "BLOCKED" | "FAILED" | undefined> = {
 	role_rejected: "BLOCKED",
@@ -355,7 +366,7 @@ const planPhase = async (
 		runId: run.id,
 		role: "planner",
 		cwd: ctx.runDir,
-		prompt: plannerPrompt(spec, architecture),
+		prompt: plannerPrompt(spec, architecture, templateProvides(ctx.deps, architecture.presetIds)),
 		schema: PlannerOutputSchema,
 		gate: (raw) => {
 			const ordered = validatePlan(raw, spec);

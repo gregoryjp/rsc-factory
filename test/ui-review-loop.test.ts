@@ -8,6 +8,7 @@ import type {
 	PreviewPort,
 	PreviewRequest,
 } from "../src/modules/execution/ports.js";
+import { RETRYABLE_REASONS } from "../src/modules/execution/retry-task.js";
 import { getRunStatus } from "../src/modules/runs/get-run-status.js";
 import {
 	approverSays,
@@ -316,18 +317,27 @@ describe("UX and UI reviewers in the build loop", () => {
 			{ "web/ui-routes.json": ROLE_ROUTES, "web/ui-auth.json": "{}" },
 			"ui-auth.json is invalid",
 		],
-	])("E15: %s blocks ux and ui without capturing", async (_name, files, reason) => {
-		const preview = fakePreview();
-		const env = await createBuildEnv({
-			tasks: [task("add")],
-			builder: [completed(redTest("add")), withFiles(files)],
-			preview,
-		});
-		const summary = await run(env);
-		expect(summary.tasks[0]).toMatchObject({ outcome: "blocked", reason: "review_blocked" });
-		expect(preview.requests).toHaveLength(0);
-		expect(reviewsOf(env).find((r) => r.area === "ux")?.reason).toContain(reason);
-	});
+		[
+			"a routes file in the wrong format",
+			{ "web/ui-routes.json": '{"routes":[{"path":"index.html"}]}' },
+			"ui-routes.json",
+		],
+	])(
+		"E15: %s blocks ux and ui without capturing, as a retryable product defect",
+		async (_name, files, reason) => {
+			const preview = fakePreview();
+			const env = await createBuildEnv({
+				tasks: [task("add")],
+				builder: [completed(redTest("add")), withFiles(files)],
+				preview,
+			});
+			const summary = await run(env);
+			expect(summary.tasks[0]).toMatchObject({ outcome: "blocked", reason: "ui_config_invalid" });
+			expect(RETRYABLE_REASONS).toContain("ui_config_invalid");
+			expect(preview.requests).toHaveLength(0);
+			expect(reviewsOf(env).find((r) => r.area === "ux")?.reason).toContain(reason);
+		},
+	);
 
 	it("E15: evidence with an entry that could not be captured authenticated never passes", async () => {
 		const withUnavailable = (commitSha: string): UiEvidence => {

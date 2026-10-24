@@ -46,9 +46,9 @@ describe("bootstrapProduct", () => {
 			projectName: 'Turno "Local"',
 		});
 		const summary = value(bootstrapProduct(deps, { runId }));
-		expect(summary).toMatchObject({ templateId: "fullstack-kimmbo", skipped: false });
+		expect(summary).toMatchObject({ templateId: "apiweb", skipped: false });
 		expect(git(target, "rev-list", "--count", "HEAD")).toBe("1");
-		expect(git(target, "log", "-1", "--format=%s")).toBe("chore: scaffold from fullstack-kimmbo");
+		expect(git(target, "log", "-1", "--format=%s")).toBe("chore: scaffold from apiweb");
 		expect(git(target, "rev-parse", "HEAD")).toBe(summary.commitSha);
 		expect(git(target, "branch", "--show-current")).toBe("main");
 		expect(git(target, "status", "--porcelain")).toBe("");
@@ -91,7 +91,7 @@ describe("bootstrapProduct", () => {
 			.filter((e) => e.type === "product.bootstrapped");
 		expect(events).toHaveLength(1);
 		expect(events[0]?.payload).toMatchObject({
-			templateId: "fullstack-kimmbo",
+			templateId: "apiweb",
 			commitSha: summary.commitSha,
 		});
 		const artifact = env.storage.artifacts.latest(runId, "bootstrap", "");
@@ -105,7 +105,7 @@ describe("bootstrapProduct", () => {
 	it("renders the static landing template for the static preset", () => {
 		const { env, deps } = createExecEnv();
 		const { runId, target } = seedPlanningRun(env, { presetIds: ["static-landing"] });
-		expect(value(bootstrapProduct(deps, { runId })).templateId).toBe("static-landing");
+		expect(value(bootstrapProduct(deps, { runId })).templateId).toBe("landing");
 		expect(readFileSync(join(target, "index.html"), "utf8")).toContain(
 			"<title>turno-local</title>",
 		);

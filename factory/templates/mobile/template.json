@@ -1,0 +1,20 @@
+{
+	"id": "mobile",
+	"presetIds": ["mobile-expo"],
+	"render": [
+		"AGENTS.md",
+		"README.md",
+		"app.json",
+		"docs/STATE.md",
+		"docs/ARCHITECTURE.md",
+		"src/screens/HomeScreen.tsx"
+	],
+	"provides": [
+		"Expo SDK 58 app (React Native 0.88, React 19) with App.tsx rendering src/screens/HomeScreen.tsx: a title and an accessible primary button",
+		"src/theme/tokens.ts design tokens consumed through StyleSheet.create",
+		"src/domain with one pure function and its vitest test (npm test runs vitest run; keep tests free of react-native imports)",
+		"npm run check runs typecheck (tsc --noEmit, strict), lint (Biome) and the tests",
+		"npm run build:web exports the web build with React Native Web to dist/ for the browser review",
+		"ui-routes.json at the root with the default [\"/\"]: a JSON array of absolute route paths captured by the browser (keep this exact format)"
+	]
+}

@@ -1,5 +1,5 @@
 import { accessSync, constants, mkdirSync } from "node:fs";
-import { MIN_NODE_MAJOR } from "../../config/compatibility.js";
+import { MIN_NODE_MAJOR, PLAYWRIGHT_IMAGE } from "../../config/compatibility.js";
 import type { ProviderConfig, RunnerPreference } from "../../config/env.js";
 import type { Failure, Result } from "../../shared/result.js";
 
@@ -80,6 +80,23 @@ const checkOptional = async (
 		: check(name, "warn", `${hint} (${found.reason})`);
 };
 
+const checkPlaywrightImage = async (deps: DoctorDeps): Promise<DoctorCheck> => {
+	const found = await probe(deps, "docker", [
+		"image",
+		"inspect",
+		"--format",
+		"{{.Id}}",
+		PLAYWRIGHT_IMAGE,
+	]);
+	return found.found
+		? check("playwright", "ok", `browser image present: ${PLAYWRIGHT_IMAGE}`)
+		: check(
+				"playwright",
+				"warn",
+				`browser image not pulled yet (UI review pulls ~2.5 GB on first use; run docker pull ${PLAYWRIGHT_IMAGE})`,
+			);
+};
+
 const checkProvider = (deps: DoctorDeps): DoctorCheck =>
 	deps.provider.kind === "fake"
 		? check(
@@ -144,12 +161,7 @@ export const runDoctor = async (deps: DoctorDeps): Promise<DoctorReport> => {
 		await checkClaude(deps),
 		checkProvider(deps),
 		await checkOptional(deps, "docker", "docker", "Docker is needed for isolation from H3"),
-		await checkOptional(
-			deps,
-			"playwright",
-			"playwright",
-			"Playwright is needed for UI review from H4",
-		),
+		await checkPlaywrightImage(deps),
 		await checkRunner(deps),
 		home,
 		migrations,

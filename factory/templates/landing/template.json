@@ -1,0 +1,13 @@
+{
+	"id": "landing",
+	"presetIds": ["static-landing"],
+	"render": ["AGENTS.md", "README.md", "docs/STATE.md", "index.html"],
+	"provides": [
+		"index.html at the repository root with doctype, lang, charset, viewport and title",
+		"styles.css at the repository root, already linked from index.html",
+		"scripts/check.mjs validating index.html structure and local links",
+		"npm test runs node --test (place tests as test/**/*.test.mjs, node:test + node:assert, no extra dependencies)",
+		"npm run check runs scripts/check.mjs and then the tests",
+		"ui-routes.json at the root with the default [\"/\"]: a JSON array of absolute route paths captured by the browser (keep this exact format)"
+	]
+}

@@ -1,0 +1,10 @@
+{
+	"name": "product",
+	"version": "0.1.0",
+	"private": true,
+	"engines": { "node": ">=22" },
+	"workspaces": ["api"],
+	"scripts": {
+		"check": "npm run check -w api"
+	}
+}

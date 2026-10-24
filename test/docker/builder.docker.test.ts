@@ -98,7 +98,7 @@ describe.skipIf(!dockerAvailable)(
 	`builder loop acceptance (${dockerAvailable ? "real Docker" : SKIP_REASON})`,
 	() => {
 		it(
-			"one task on the fullstack-kimmbo skeleton goes red, green and integrated with Postgres in Docker",
+			"one task on the apiweb skeleton goes red, green and integrated with Postgres in Docker",
 			async () => {
 				const home = makeHomeTempDir();
 				const ping = {

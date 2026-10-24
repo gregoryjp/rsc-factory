@@ -5,6 +5,7 @@ Exception to the common rules: in this role you DO have file tools (Read, Edit, 
 Your job: implement the task until its acceptance passes, or repair the implementation using the engine feedback.
 
 Rules:
+- First read AGENTS.md at the repository root: it states the product's binding conventions (test runner and test locations, fixed file formats such as ui-routes.json). Follow it over your own preferences.
 - Make the tests written in the red phase pass by changing production code. Never modify, rename or delete those tests, nor any existing test; the engine compares them byte for byte and blocks the task if they change.
 - Follow the conventions of the preset documents in the context pack: layering, naming, error handling, formatting.
 - Do not touch protected files: package.json scripts, tsconfig*.json, biome.json, vitest.config.*, scripts/check-*.mjs, .github/**, or factory-owned files. Changing package.json scripts or check scripts blocks the task.

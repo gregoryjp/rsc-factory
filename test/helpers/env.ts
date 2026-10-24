@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
+import { BUDGET_CONFIG_PATH } from "../../src/contracts/budget.js";
 import { createFsArtifactStore } from "../../src/infrastructure/fs/artifact-store.js";
 import { createFsFactoryFiles } from "../../src/infrastructure/fs/factory-files.js";
 import { createFsPrdFiles } from "../../src/infrastructure/fs/prd-files.js";
@@ -12,9 +13,36 @@ import {
 	type ScriptedProvider,
 } from "../../src/infrastructure/providers/scripted-provider.js";
 import { openStorage } from "../../src/infrastructure/storage/sqlite-storage.js";
+import type { FactoryFiles } from "../../src/modules/planning/ports.js";
+import { sha256Of } from "../../src/shared/hash.js";
+import { ok } from "../../src/shared/result.js";
 import { createFakeClock, type FakeClock } from "./clock.js";
 
 export const REPO_ROOT = join(import.meta.dirname, "..", "..");
+
+const TEST_BUDGET_CONFIG = JSON.stringify({
+	defaultRunBudgetUsd: 15,
+	maxCallUsd: {
+		"spec-writer": 1.5,
+		architect: 1.5,
+		planner: 1.5,
+		builder: 3,
+		"reviewer-security": 1.5,
+		"reviewer-code": 1.5,
+		"reviewer-ux": 1.5,
+		"reviewer-ui": 1.5,
+		"review-refuter": 1.5,
+		approver: 1,
+	},
+	retry: { maxAttempts: 3, baseMs: 2000, capMs: 60_000 },
+});
+
+export const withTestBudgetConfig = (files: FactoryFiles): FactoryFiles => ({
+	read: (relativePath) =>
+		relativePath === BUDGET_CONFIG_PATH
+			? ok({ content: TEST_BUDGET_CONFIG, sha256: sha256Of(TEST_BUDGET_CONFIG) })
+			: files.read(relativePath),
+});
 
 export const createSequentialIds = (): IdGenerator => {
 	let counter = 0;
@@ -51,7 +79,7 @@ export const openEnv = (
 		factoryHome: home,
 		provider: options.provider ?? createScriptedProvider({}),
 		artifactStore: createFsArtifactStore({ factoryHome: home }),
-		factoryFiles: createFsFactoryFiles({ repoRoot: REPO_ROOT }),
+		factoryFiles: withTestBudgetConfig(createFsFactoryFiles({ repoRoot: REPO_ROOT })),
 		settings: {
 			contextPackMaxBytes: options.contextPackMaxBytes ?? 60 * 1024,
 			factoryHome: home,

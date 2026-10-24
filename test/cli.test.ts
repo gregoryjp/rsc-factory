@@ -251,7 +251,7 @@ describe("CLI build --bootstrap-only with the host runner and the static templat
 		const built = await factory(home, ["build", runId, "--bootstrap-only"], env);
 		expect(built.code, built.stderr).toBe(0);
 		expect(built.stderr).toContain("without isolation");
-		expect(built.stdout).toContain("Bootstrap: template static-landing");
+		expect(built.stdout).toContain("Bootstrap: template landing");
 		expect(built.stdout).toContain("NO ISOLATION");
 		expect(built.stdout).toContain("All product checks passed.");
 		expect(existsSync(join(target, ".git"))).toBe(true);

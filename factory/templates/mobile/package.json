@@ -1,0 +1,28 @@
+{
+	"name": "mobile-app",
+	"version": "0.1.0",
+	"private": true,
+	"main": "index.ts",
+	"engines": { "node": ">=22" },
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check .",
+		"test": "vitest run",
+		"build:web": "expo export --platform web",
+		"check": "npm run typecheck && npm run lint && npm run test"
+	},
+	"dependencies": {
+		"@expo/metro-runtime": "58.0.15",
+		"expo": "58.0.19",
+		"react": "19.3.0",
+		"react-dom": "19.3.0",
+		"react-native": "0.88.0",
+		"react-native-web": "0.21.4"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.14",
+		"@types/react": "19.3.0",
+		"typescript": "5.9.3",
+		"vitest": "5.0.5"
+	}
+}

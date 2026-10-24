@@ -87,6 +87,16 @@ describe("factory retry", () => {
 		expect(!unknown.ok && unknown.error.code).toBe("task_not_found");
 	});
 
+	it("lets the operator force a non-retryable reason, records it as forced and still counts the limit", async () => {
+		const env = await createBuildEnv({ tasks: [task("add")], builder: [blockedByBuilder()] });
+		await run(env);
+		const forced = retryTask(env.deps, { runId: env.runId, taskKey: "add", force: true });
+		expect(forced).toMatchObject({ ok: true, value: { reason: "builder_blocked", retries: 1 } });
+		expect(env.taskOf("add").state).toBe("READY");
+		const event = env.storage.events.list(env.runId, {}).find((e) => e.type === "task.retried");
+		expect(event?.payload).toMatchObject({ forced: true, reason: "builder_blocked" });
+	});
+
 	it("allows tests_tampered and counts it against the limit", async () => {
 		const tamper = completed({
 			writes: {

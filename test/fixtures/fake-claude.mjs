@@ -22,6 +22,20 @@ switch (scenario) {
 	case "success":
 		process.stdout.write(envelope({}));
 		break;
+	case "real_cli_2_1_258":
+		process.stdout.write(
+			envelope({
+				duration_api_ms: 2130,
+				stop_reason: "tool_use",
+				session_id: "017d7d05-4ef6-416a-a768-cc5e271c2fb0",
+				api_error_status: null,
+				result: '{"status":"completed","summary":"ok"}',
+				usage: { input_tokens: 2, cache_creation_input_tokens: 28815 },
+				permission_denials: [],
+				fast_mode_state: "off",
+			}),
+		);
+		break;
 	case "schema_mismatch":
 		process.stdout.write(envelope({ structured_output: { status: "nope" } }));
 		break;

@@ -72,6 +72,21 @@ describe("doctor", () => {
 		expect(report.checks.every((c) => c.status === "ok")).toBe(true);
 	});
 
+	it("checks the pinned Playwright Docker image instead of a host install", async () => {
+		const report = await runDoctor(
+			baseDeps(
+				runnerFor({
+					git: "git version 2.34.1",
+					claude: `${EXPECTED_CLAUDE_VERSION} (Claude Code)`,
+					docker: "sha256:abc",
+				}),
+			),
+		);
+		const playwright = report.checks.find((c) => c.name === "playwright");
+		expect(playwright?.status).toBe("ok");
+		expect(playwright?.detail).toContain("mcr.microsoft.com/playwright");
+	});
+
 	it("warns on claude version mismatch and missing docker/playwright without failing", async () => {
 		const report = await runDoctor(
 			baseDeps(runnerFor({ git: "git version 2.34.1", claude: "2.9.9 (Claude Code)" })),

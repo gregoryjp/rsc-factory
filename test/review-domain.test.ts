@@ -459,7 +459,7 @@ describe("G4 engine gate", () => {
 	});
 
 	it.each([
-		{ approver: "repair", budget: true, expected: "repair" },
+		{ approver: "repair", budget: true, expected: "pass" },
 		{ approver: "repair", budget: false, expected: "pass" },
 		{ approver: "accept", budget: true, expected: "pass" },
 		{ approver: "accept", budget: false, expected: "pass" },

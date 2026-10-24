@@ -10,7 +10,7 @@ Actualizado: 2026-10-24.
 | H3 Builder aislado y ejecución | **Hecho** (H3a + H3b; el bucle se probó con proveedor guionizado, sin builder real) | `factory/templates/`, `factory/policies/`, `src/modules/execution/`, `src/infrastructure/{git,runner}/`, `docs/adr/0007-product-templates.md`, `docs/adr/0010-builder-loop.md`, `test/build-loop.test.ts`, `test/docker/` |
 | H4 Revisores, gates y reparaciones | **Hecho (H4a + H4b + H4c)**: captura autenticada por rol, red interna en runtime, proxy `/api`; revisores de seguridad, código, UX y UI, refutador, approver, gate G4 con cuatro áreas, evidencia de navegador real ejecutada por el motor, reparación por hallazgos, `blocked-diff` y `factory retry`; revisores de modelo solo con proveedor guionizado | `src/domain/review/`, `src/modules/execution/review-task.ts`, `src/infrastructure/runner/docker-preview*.ts`, `factory/preview/`, `docs/adr/0012-review-gate.md`, `docs/adr/0013-browser-evidence.md`, `test/review-*.test.ts`, `test/ui-*.test.ts`, `test/docker-preview*.test.ts`, `test/docker/preview.docker.test.ts` |
 | H5 Presupuesto y recuperación | **Hecho**: libro de presupuesto con reserva previa por llamada, `factory budget --add`, taxonomía de fallos del proveedor (cuota vs 429/529), backoff con jitter, `BLOCKED` con `waitUntil`, cancelación con trabajo activo, restauración de worktrees y reservas huérfanas | `src/modules/budget/`, `src/domain/provider/quota.ts`, `src/infrastructure/storage/budget-repository.ts`, `src/modules/runs/{block-run,add-budget,cancellation}.ts`, `factory/config/budget.json`, `docs/adr/0014-budget-and-recovery.md`, `test/{budget-ledger,budget-calls,build-halts,cancel,recovery,provider-quota}.test.ts` |
-| H6 Entrega y demo TurnoLocal | **Preparación hecha; demo real no ejecutada por decisión de Gregory (coste de cuota)**. MVP construido y probado por piezas, **no validado de punta a punta** con el proveedor real | `src/modules/delivery/`, `src/modules/audit/`, `docs/adr/0015-delivery-report-audit.md`, `test/{report,deliver,release,run-all,audit,cli-delivery}.test.ts`, `test/golden/run-report.md` |
+| H6 Entrega y demo | **Hecho**: validación de punta a punta con el proveedor real superada con el PRD mini (TurnoLocal no ejecutado por coste de cuota) | `src/modules/delivery/`, `src/modules/audit/`, `docs/adr/0015-delivery-report-audit.md`, `test/{report,deliver,release,run-all,audit,cli-delivery}.test.ts`, `test/golden/run-report.md` |
 | H7 Industrialización | Fuera del MVP | — |
 
 ## H0 — resultado
@@ -139,7 +139,7 @@ Observado por el coordinador (no reproducido por este agente): `claude` real (so
 
 Funciona (verificado con los comandos de abajo, con Docker real):
 
-- **Esqueletos deterministas** en `factory/templates/`: `fullstack-kimmbo` (npm workspaces `api` + `web`, guards del preset, health e2e contra Postgres real, `compose.yaml` para el humano), `static-landing` (HTML/CSS + `scripts/check.mjs`). Manifiesto `template.json` (id, presets que satisface, archivos a renderizar), marcadores `{{PRODUCT_NAME}}`/`{{PRODUCT_SLUG}}` y `package-lock.json` versionado (ADR 0007, versiones en `docs/compatibility/matrix.md`).
+- **Esqueletos deterministas** en `factory/templates/`: `apiweb` (npm workspaces `api` + `web`, guards del preset, health e2e contra Postgres real, `compose.yaml` para el humano), `static-landing` (HTML/CSS + `scripts/check.mjs`), `mobile` (Expo + React Native Web). Manifiesto `template.json` (id, presets que satisface, archivos a renderizar), marcadores `{{PRODUCT_NAME}}`/`{{PRODUCT_SLUG}}` y `package-lock.json` versionado (ADR 0007, versiones en `docs/compatibility/matrix.md`).
 - **Bootstrap** (`src/modules/execution/bootstrap-product.ts`): revalida el destino antes de cada escritura del motor (cierra el TOCTOU de H2), `git init -b main`, identidad local del repo, escaneo de secretos, commit `chore: scaffold from <id>`, artefacto `bootstrap` + evento `product.bootstrapped`; idempotente; repo existente → `existing_repo_unsupported`.
 - **Adaptador Git** (`src/infrastructure/git/`): solo `argv`, sin hooks ni config global/de sistema; init, commit, `headSha`, `isClean`, worktree add/remove bajo `<FACTORY_HOME>/runs/<runId>/worktrees/<taskKey>`, `diffNames`, `mergeNoFf` exclusivo (lock `O_EXCL` con detección de pid muerto); nombres validados con `^[a-z0-9][a-z0-9-]{0,63}$`.
 - **Escaneo de secretos** (`src/domain/security/secret-scan.ts`): `.env` (salvo `*.example`), cabeceras de clave privada, AWS access key id y asignaciones largas entre comillas fuera de tests/fixtures/ejemplos; los hallazgos llevan archivo, línea y regla, nunca el valor.
@@ -162,7 +162,7 @@ Comandos ejecutados (resultado observado):
 - `npm test`: 22 archivos, 366 tests pasan y 1 se salta (el guard `check-comments` del esqueleto necesita `typescript` instalado en el esqueleto, que no está en el repo; lo cubre la aceptación Docker en positivo).
 - `npm run test:docker`: 2 archivos, 12 tests pasan en 117 s (tras la corrección) (runner real: HostRunner, DockerRunner, timeout, teardown; aceptación de fullstack con Postgres real, inyección de fallo y landing).
 - `npm run factory -- doctor`: todo OK salvo aviso por Playwright; `runner: docker (isolated checks with a per-run Postgres)`; migraciones 1 a 4.
-- CLI con `FACTORY_PROVIDER=fake FACTORY_FAKE_FIXTURES=test/fixtures/demo`: `start --prd templates/PRD-DEMO.md --target <dir>` → `plan` (3 llamadas, 6 tareas) → `build --bootstrap-only` → `status`. Con el destino bajo `$HOME`: bootstrap `fullstack-kimmbo`, `npm ci` OK (28 s) y `npm run check` OK (17 s) en Docker, exit 0; segundo `build` salta el bootstrap y repite los checks, exit 0. Con `mktemp -d` bajo `/tmp` y Docker Desktop: `npm ci` exit 125 (Docker Desktop no comparte `/tmp`), el informe lo explica y el exit es 1.
+- CLI con `FACTORY_PROVIDER=fake FACTORY_FAKE_FIXTURES=test/fixtures/demo`: `start --prd templates/PRD-DEMO.md --target <dir>` → `plan` (3 llamadas, 6 tareas) → `build --bootstrap-only` → `status`. Con el destino bajo `$HOME`: bootstrap `apiweb`, `npm ci` OK (28 s) y `npm run check` OK (17 s) en Docker, exit 0; segundo `build` salta el bootstrap y repite los checks, exit 0. Con `mktemp -d` bajo `/tmp` y Docker Desktop: `npm ci` exit 125 (Docker Desktop no comparte `/tmp`), el informe lo explica y el exit es 1.
 - Tras cada ejecución, `docker ps -a --filter label=factory.managed=true` quedó vacío y `docker ps` siguió listando `kimmbo-prod-api-1`, `kimmbo-prod-postgres-1`, `kimmbo-prod-redis-1`, `kimmbo-prod-caddy-1` y `backend-template-postgres-1`.
 
 Decisiones fuera del encargo: vitest 5.0.5 en los esqueletos (5.0.2 rompe `npm install` con npm 10.9.8); `--user 0:0` en Docker Desktop (el `root` del contenedor es el usuario del host en disco; con `uid:gid` el directorio montado es ilegible); imagen Node `22.23.2-bookworm-slim` fijada por digest; secretos del contenedor por nombre en lugar de valor en el `argv`; `NODE_ENV=production` explícito en el build de `web` (el runner fuerza `NODE_ENV=test`); el motor se niega a ejecutar un check con el árbol sucio y no registra un check que modifica archivos versionados; extensiones de contrato: eventos `product.bootstrapped`/`check.recorded`, artefacto `bootstrap`, `TargetFiles.revalidate`, `ProjectRepository.findById`.
@@ -223,7 +223,7 @@ Evaluaciones cubiertas:
 | Cambios protegidos | tests de `package.json` scripts, guard `check-*.mjs`, tsconfig/biome (`requires_review`), tests alterados o borrados |
 | Dependencias, límites y reanudación | «keeps a dependent PENDING…», «stops cleanly at --max-provider-calls…», «--max-tasks», «resumes after an interruption…» |
 | Perfil del builder | «gives the builder the restricted profile…» y `test/builder-provider.test.ts` (flags, nunca `--tools ""` ni Bash) |
-| Aceptación Docker | `test/docker/builder.docker.test.ts`: una tarea `ping` (ruta, servicio y e2e) sobre el esqueleto real `fullstack-kimmbo`: rojo y verde en Docker con Postgres, integración, `DONE`, run `READY_FOR_RELEASE`, sin objetos Docker etiquetados al final |
+| Aceptación Docker | `test/docker/builder.docker.test.ts`: una tarea `ping` (ruta, servicio y e2e) sobre el esqueleto real `apiweb`: rojo y verde en Docker con Postgres, integración, `DONE`, run `READY_FOR_RELEASE`, sin objetos Docker etiquetados al final |
 
 Comandos ejecutados (resultado observado):
 
@@ -327,7 +327,7 @@ Funciona (ADR 0013):
 - `PreviewPort` + implementación Docker (`createDockerPreview`): snapshot del commit, `npm ci` y build en contenedores Node fijados, servidor estático del motor, Postgres/migrate/seed/api solo si la política `preview` los define, y contenedor de Playwright (`mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd…`, verificada con `docker pull`) que ejecuta `factory/preview/capture.mjs` (hash registrado en la evidencia) a 390x844 y 1440x900: PNG de página completa, axe-core 4.14.0, desbordamiento horizontal, foco con Tab (10 elementos), errores de consola. El motor valida con Zod, recalcula sha256/tamaño de cada PNG y escribe `ui-evidence.json` en `runs/<runId>/ui/<commit>/`. Teardown siempre en `finally`, solo por etiqueta `factory.preview` (más `factory.managed`/`factory.run`), sin puertos, socket ni home.
 - Roles `reviewer-ux` y `reviewer-ui` (solo lectura, `cwd` = snapshot + `ui-evidence/`), prompts con la doctrina de H4a, `evidenceRef` opcional en hallazgos.
 - Aplicabilidad determinista (`web/` o html/css según plantilla): `not_applicable` con «no UI changes» sin llamadas; aplica y evidencia `unavailable` -> ux/ui `blocked` -> `BLOCKED review_blocked` (E15). Gate G4 con cuatro áreas; cada llamada UX/UI cuenta en `--max-provider-calls`; las revisiones `blocked` del motor para ux/ui no se reutilizan al reanudar.
-- Plantilla `fullstack-kimmbo`: solo se añadió `web/ui-routes.json` (`["/"]`); no hizo falta ningún script `start:preview` (el motor sirve `web/dist`). `status` muestra por tarea la ruta de la evidencia y los conteos de axe.
+- Plantilla `apiweb`: solo se añadió `web/ui-routes.json` (`["/"]`); no hizo falta ningún script `start:preview` (el motor sirve `web/dist`). `status` muestra por tarea la ruta de la evidencia y los conteos de axe.
 
 Evaluaciones:
 
@@ -367,7 +367,7 @@ Funciona (ADR 0013, ampliación H4c): endurecimiento de la captura de navegador 
 | Hallazgo | Corrección | Test |
 |---|---|---|
 | 1 Directorio estático como symlink (MEDIO) | `lstat` debe ser directorio real, `realpath` dentro del snapshot y se monta el `realpath`; raíz del producto también con `realpath` | `test/docker-preview.test.ts` (symlink a host y symlink en el padre); `test/docker/preview.docker.test.ts` («rejects a static dir that the build replaced with a symlink…», Docker real) |
-| 2 Aplicabilidad (MEDIO) | `static-landing`: todo salvo `*.md`, `docs/**`, `LICENSE`; `fullstack-kimmbo`: `web/**`, archivos raíz de build/config y workspaces distintos de `api/` | tablas en `test/ui-domain.test.ts` |
+| 2 Aplicabilidad (MEDIO) | `static-landing`: todo salvo `*.md`, `docs/**`, `LICENSE`; `apiweb`: `web/**`, archivos raíz de build/config y workspaces distintos de `api/` | tablas en `test/ui-domain.test.ts` |
 | 3 Salida de red (MEDIO) | red `-net` (con salida) solo para install/build/api-build; red `-int` (`--internal`) para Postgres, migrate, seed, api, servidor estático y Playwright | `test/docker-preview-argv.test.ts`, `test/docker-preview.test.ts`; Docker real: «the runtime network is internal…» (api/step alcanza Postgres, `1.1.1.1:443` no) |
 | 4 Colisión de nombres (BAJO) | `shots/<índice>-<slug>-<rol>-<ancho>x<alto>.png` (`factory/preview/names.mjs`); el contrato rechaza rutas duplicadas | `test/preview-names.test.ts`, `test/ui-domain.test.ts`, `test/docker-preview.test.ts` |
 | 5 Texto del producto (BAJO) | consola y etiquetas de foco fuera de `UI_EVIDENCE`, en `UI_PRODUCT_TEXT` (`dataBlock`, tope 4000 caracteres, topes por entrada en el contrato y el script) | `test/ui-domain.test.ts`, `test/ui-review-loop.test.ts` |
@@ -465,6 +465,14 @@ Límites de H6-prep:
 
 TDD: informe, entrega, orquestación, auditoría y CLI se escribieron con el test antes y se observó rojo por módulo inexistente (no por aserciones). Desviaciones: `captureTargetState`, `diffTargetState`, `createReadOnlyGit` y las adiciones a `GitPort` (`statusPorcelainV2`, `listFiles`, `remoteNames`) se escribieron antes de su test (verde a la primera); `release.ts` y `deliver` salieron antes que `test/release.test.ts`; el único rojo por aserción fue el de coste desconocido del informe, un error del propio test (el proveedor falso normaliza `null` a 0) corregido inyectando un cargo `unknown_reservation`; `test/golden/run-report.md` se generó con la primera ejecución y se revisó a mano.
 
+## Plantilla mobile
+
+Plantilla `mobile` (preset `mobile-expo`): Expo SDK 58, React Native 0.88.0, React 19.3.0 y React Native Web 0.21.4 (versiones de `bundledNativeModules.json` de `expo@58.0.19`, fijadas exactas). Detalle en ADR 0007.
+
+- Unit: `npm run typecheck`, `npm run lint` y `npm test` en verde (772 tests unit).
+- Docker: `npx vitest run --project docker test/docker/skeleton.docker.test.ts -t mobile` (`npm ci` + `npm run check` en el runner, ~57 s) y `npx vitest run --project docker test/docker/preview.docker.test.ts -t mobile` (`build:web` + captura 390/1440, 2 PNG, axe presente, ~50 s). Sin objetos `factory.managed` residuales; `kimmbo-prod-*` intactos.
+- Límites: sin tests de componentes; el comportamiento solo nativo requiere revisión manual; combinación con backend sin plantilla todavía.
+
 ## Límites conocidos
 
 - `--max-budget-usd` del CLI se comprueba después de la llamada; desde H5 el motor reserva antes (ADR 0014) y lo pasa solo como red secundaria.
@@ -478,6 +486,21 @@ TDD: informe, entrega, orquestación, auditoría y CLI se escribieron con el tes
 Parciales (motor/planificación con proveedor falso): E02, E03, E04, E08, E09, E12, E13/E18, E16, E19. H6-prep añade E17 y E20 (motor, sin proveedor real; ver «H6-prep — resultado»). E05 y E07 cubiertas en H3b (bucle del builder, con proveedor guionizado); E14 solo detección (sin resolución). Detalle por hito arriba. El resto no está implementado.
 
 ## Siguiente paso
+
+### Validación de punta a punta con el proveedor real (2026-10-24) — **SUPERADA**
+
+Run `run_d937a9a7…` con `factory/examples/PRD-MINI-LANDING.md` → `SUCCEEDED` (delivery local) en `~/Projects/landing-mini`: 5 tareas `DONE` con rojo/verde observado por el motor en Docker, cuatro revisores reales (seguridad, código, UX y UI con capturas de navegador 390/1440 px y axe), approver, integración y entrega a `main` (`c5df65a`) con `docs/verification/factory-report.md` (REQ-001..003 «entregado»). Verificación del coordinador: `npm run check` del producto → 50 tests, 0 fallos; árbol limpio. Coste informado: USD 7,42 a precio de lista (cuota Pro), con una pausa por cuota (reanudada a la hora indicada) y dos por presupuesto.
+
+Defectos que solo apareció el proveedor real, todos corregidos con test primero:
+
+1. El CLI devuelve `"api_error_status": null` → el sobre se rechazaba (schema admite ahora `null`).
+2. Bajo `$HOME` el CLI cargaba ~27k tokens de instrucciones globales del usuario pese a `--setting-sources project` → `--safe-mode` (1,2k tokens, ~19× menos; confinamiento `--restricted` re-verificado con denegación real).
+3. El arquitecto podía elegir una combinación de presets sin plantilla → gate en planificación + prompt con combinaciones válidas.
+4. El `check` de `static-landing` no ejecutaba los tests → nunca había rojo; ahora `npm test` = `node --test` y `check` lo incluye.
+5. Planner demasiado granular y con tareas de scaffold → `provides` del manifiesto de plantilla al planner + tope `max(3, 2×must)` tareas.
+6. Reparación pedida por el approver solo por hallazgos menores rompió código aprobado → ya no dispara reparación (ADR 0012 §6b revisado).
+7. Topes por llamada exagerados (builder 3 USD) → calibrados con 51 llamadas reales (~2× máximo observado); los tests usan su propia configuración fija.
+8. El builder inventó el formato de `ui-routes.json` → la plantilla lo trae (`["/"]`), `AGENTS.md` lo documenta y los prompts del builder obligan a leer `AGENTS.md`; un `ui-routes.json`/`ui-auth.json` inválido bloquea como `ui_config_invalid` (reintentable); `retry --force` para override registrado del operador.
 
 Decisión 2026-10-24: Gregory no ejecuta la demo TurnoLocal (estimado USD 30–50 a precio de lista de cuota Pro). Alternativa preparada, sin coste hasta que se lance: `factory/examples/PRD-MINI-LANDING.md` (3 requisitos, landing estática, ~2–3 tareas, estimado USD 3–6). Comando: `npm run factory -- run --prd factory/examples/PRD-MINI-LANDING.md --target ~/Projects/landing-mini --budget-usd 8`. Esa corrida es lo único que validaría el sistema completo con el proveedor real (builder + cuatro revisores reales nunca ejecutados juntos).
 

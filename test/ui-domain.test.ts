@@ -98,27 +98,36 @@ describe("parseUiRoutes", () => {
 
 describe("uiApplicability", () => {
 	it("applies to fullstack tasks whose diff touches web/", () => {
-		expect(
-			uiApplicability({ templateId: "fullstack-kimmbo", changedFiles: ["web/src/App.tsx"] }),
-		).toEqual({ applies: true });
+		expect(uiApplicability({ templateId: "apiweb", changedFiles: ["web/src/App.tsx"] })).toEqual({
+			applies: true,
+		});
 	});
 
 	it("does not apply to api-only fullstack diffs", () => {
 		expect(
 			uiApplicability({
-				templateId: "fullstack-kimmbo",
+				templateId: "apiweb",
 				changedFiles: ["api/src/x.ts", "README.md"],
 			}),
 		).toEqual({ applies: false, reason: UI_NOT_APPLICABLE_REASON });
 		expect(UI_NOT_APPLICABLE_REASON).toBe("no UI changes");
 	});
 
+	it("never applies to the api template, whatever the diff touches", () => {
+		expect(
+			uiApplicability({
+				templateId: "api",
+				changedFiles: ["api/src/x.ts", "package.json", "docs/x.md", "web/stray.tsx"],
+			}),
+		).toEqual({ applies: false, reason: UI_NOT_APPLICABLE_REASON });
+	});
+
 	it("applies to static-landing diffs touching html or css only", () => {
+		expect(uiApplicability({ templateId: "landing", changedFiles: ["index.html"] }).applies).toBe(
+			true,
+		);
 		expect(
-			uiApplicability({ templateId: "static-landing", changedFiles: ["index.html"] }).applies,
-		).toBe(true);
-		expect(
-			uiApplicability({ templateId: "static-landing", changedFiles: ["styles/site.css"] }).applies,
+			uiApplicability({ templateId: "landing", changedFiles: ["styles/site.css"] }).applies,
 		).toBe(true);
 	});
 
@@ -134,7 +143,19 @@ describe("uiApplicability", () => {
 		["docs and markdown only", ["docs/a.md", "README.md", "api/x.ts"], false],
 		["compose file", ["compose.yaml"], false],
 	])("fullstack rule: %s", (_name, changedFiles, applies) => {
-		expect(uiApplicability({ templateId: "fullstack-kimmbo", changedFiles }).applies).toBe(applies);
+		expect(uiApplicability({ templateId: "apiweb", changedFiles }).applies).toBe(applies);
+	});
+
+	it.each([
+		["screen", ["src/screens/HomeScreen.tsx"], true],
+		["tokens", ["src/theme/tokens.ts"], true],
+		["app config", ["app.json"], true],
+		["package.json", ["package.json"], true],
+		["markdown", ["README.md"], false],
+		["docs tree", ["docs/STATE.md", "docs/a/b.png"], false],
+		["license", ["LICENSE"], false],
+	])("mobile rule: %s", (_name, changedFiles, applies) => {
+		expect(uiApplicability({ templateId: "mobile", changedFiles }).applies).toBe(applies);
 	});
 
 	it.each([
@@ -148,7 +169,7 @@ describe("uiApplicability", () => {
 		["docs tree", ["docs/design.txt", "docs/a/b.png"], false],
 		["license", ["LICENSE"], false],
 	])("static-landing rule: %s", (_name, changedFiles, applies) => {
-		expect(uiApplicability({ templateId: "static-landing", changedFiles }).applies).toBe(applies);
+		expect(uiApplicability({ templateId: "landing", changedFiles }).applies).toBe(applies);
 	});
 
 	it("falls back to the web/ rule for unknown templates", () => {
@@ -370,9 +391,15 @@ describe("preview policy", () => {
 		const text = readFileSync(join(REPO_ROOT, "factory/policies/checks.json"), "utf8");
 		const parsed = parseCheckPolicy(text);
 		if (!parsed.ok) throw new Error(parsed.error.message);
-		expect(parsed.value["fullstack-kimmbo"]?.preview?.staticDir).toBe("web/dist");
-		expect(parsed.value["static-landing"]?.preview?.staticDir).toBe(".");
-		expect(parsed.value["fullstack-kimmbo"]?.preview?.authFile).toBe("web/ui-auth.json");
-		expect(parsed.value["fullstack-kimmbo"]?.preview?.api?.healthPath).toBe("/health/ready");
+		expect(parsed.value.apiweb?.preview?.staticDir).toBe("web/dist");
+		expect(parsed.value.landing?.preview?.staticDir).toBe(".");
+		expect(parsed.value.mobile?.preview).toEqual({
+			install: ["npm", "ci"],
+			build: ["npm", "run", "build:web"],
+			staticDir: "dist",
+			routesFile: "ui-routes.json",
+		});
+		expect(parsed.value.apiweb?.preview?.authFile).toBe("web/ui-auth.json");
+		expect(parsed.value.apiweb?.preview?.api?.healthPath).toBe("/health/ready");
 	});
 });

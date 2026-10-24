@@ -108,6 +108,17 @@ describe("validatePlan", () => {
 		const result = validatePlan(plan, base);
 		expect(result.ok && result.value.map((t) => t.key)).toEqual(["a", "b", "c"]);
 	});
+	it("caps the number of tasks at max(3, 2 x must requirements)", () => {
+		const many = (n: number): PlannerOutput => ({
+			tasks: Array.from({ length: n }, (_, i) =>
+				task(`t${i}`, { requirementIds: [i % 2 === 0 ? "REQ-001" : "REQ-002"] }),
+			),
+		});
+		expect(validatePlan(many(4), base).ok).toBe(true);
+		const tooMany = errorsOf(validatePlan(many(5), base)).join("\n");
+		expect(tooMany).toContain("5 tasks");
+		expect(tooMany).toContain("at most 4");
+	});
 	it("rejects cycles, self deps, unknown deps and duplicate keys", () => {
 		const cycle = validatePlan(
 			{
@@ -184,11 +195,25 @@ describe("validateArchitecture", () => {
 	it("accepts known presets and combinations", () => {
 		expect(validateArchitecture(arch(["backend-express-kimmbo", "web-react-vite"])).ok).toBe(true);
 		expect(validateArchitecture(arch(["static-landing"])).ok).toBe(true);
+		expect(validateArchitecture(arch(["mobile-expo"])).ok).toBe(true);
+	});
+	it("rejects mobile-expo combined with static-landing or with the backend", () => {
+		expect(validateArchitecture(arch(["mobile-expo", "static-landing"])).ok).toBe(false);
+		expect(validateArchitecture(arch(["mobile-expo", "backend-express-kimmbo"])).ok).toBe(false);
 	});
 	it("rejects unknown, duplicate and conflicting presets", () => {
 		expect(errorsOf(validateArchitecture(arch(["nope"]))).join("\n")).toContain("nope");
 		expect(validateArchitecture(arch(["web-react-vite", "web-react-vite"])).ok).toBe(false);
 		expect(validateArchitecture(arch(["static-landing", "backend-express-kimmbo"])).ok).toBe(false);
+	});
+	it("rejects valid presets whose combination has no product template, listing supported ones", () => {
+		expect(validateArchitecture(arch(["backend-express-kimmbo"])).ok).toBe(true);
+		for (const ids of [["web-react-vite"]]) {
+			const message = errorsOf(validateArchitecture(arch(ids))).join("\n");
+			expect(message).toContain("no product template");
+			expect(message).toContain("backend-express-kimmbo+web-react-vite");
+			expect(message).toContain("static-landing");
+		}
 	});
 	it("rejects duplicate decision ids", () => {
 		const decision = { id: "ADR-001", title: "t", context: "c", decision: "d", alternatives: [] };

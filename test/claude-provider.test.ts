@@ -44,6 +44,14 @@ describe("ClaudeCliProvider (fake executable)", () => {
 		});
 	});
 
+	it("accepts the real CLI 2.1.258 success envelope with api_error_status null and extra fields", async () => {
+		const result = await providerFor("real_cli_2_1_258").invoke(request(), OutputSchema);
+		expect(result).toMatchObject({
+			ok: true,
+			value: { output: { status: "completed", summary: "ok" }, costUsd: 0.0069 },
+		});
+	});
+
 	it("passes the documented argv without a shell", async () => {
 		const argvFile = join(makeTempDir(), "argv.json");
 		await providerFor("success", { FAKE_ARGV_FILE: argvFile }).invoke(request(), OutputSchema);
@@ -57,6 +65,7 @@ describe("ClaudeCliProvider (fake executable)", () => {
 				"--no-session-persistence",
 				"--strict-mcp-config",
 				"--disable-slash-commands",
+				"--safe-mode",
 				"--setting-sources",
 				"project",
 				"--max-budget-usd",

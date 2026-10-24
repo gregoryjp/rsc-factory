@@ -62,35 +62,40 @@ describe("product name and slug", () => {
 });
 
 describe("selectTemplateId", () => {
-	it("maps backend + web to fullstack-kimmbo regardless of order", () => {
+	it("maps backend + web to apiweb regardless of order", () => {
 		for (const ids of [
 			["backend-express-kimmbo", "web-react-vite"],
 			["web-react-vite", "backend-express-kimmbo"],
 		]) {
-			expect(selectTemplateId(ids)).toEqual({ ok: true, value: "fullstack-kimmbo" });
+			expect(selectTemplateId(ids)).toEqual({ ok: true, value: "apiweb" });
 		}
 	});
 
 	it("maps static-landing to static-landing", () => {
-		expect(selectTemplateId(["static-landing"])).toEqual({ ok: true, value: "static-landing" });
+		expect(selectTemplateId(["static-landing"])).toEqual({ ok: true, value: "landing" });
 	});
 
-	it.each([
-		[["backend-express-kimmbo"]],
-		[["web-react-vite"]],
-		[["static-landing", "web-react-vite"]],
-		[[]],
-		[["unknown"]],
-	])("rejects unsupported preset combination %j", (ids) => {
-		expect(selectTemplateId(ids)).toMatchObject({
-			ok: false,
-			error: { code: "no_template_for_presets" },
-		});
+	it("maps mobile-expo to the mobile template", () => {
+		expect(selectTemplateId(["mobile-expo"])).toEqual({ ok: true, value: "mobile" });
 	});
+
+	it("maps backend alone to the api template", () => {
+		expect(selectTemplateId(["backend-express-kimmbo"])).toEqual({ ok: true, value: "api" });
+	});
+
+	it.each([[["web-react-vite"]], [["static-landing", "web-react-vite"]], [[]], [["unknown"]]])(
+		"rejects unsupported preset combination %j",
+		(ids) => {
+			expect(selectTemplateId(ids)).toMatchObject({
+				ok: false,
+				error: { code: "no_template_for_presets" },
+			});
+		},
+	);
 });
 
 describe("template manifests on disk", () => {
-	it.each(["fullstack-kimmbo", "static-landing"])(
+	it.each(["apiweb", "landing", "api", "mobile"])(
 		"%s manifest matches the selection table",
 		(id) => {
 			const raw = readFileSync(
@@ -107,7 +112,7 @@ describe("template manifests on disk", () => {
 describe("template store", () => {
 	const store = createFsTemplateStore({ repoRoot: REPO_ROOT });
 
-	it.each(["fullstack-kimmbo", "static-landing"])(
+	it.each(["apiweb", "landing", "api", "mobile"])(
 		"%s lists every file with a placeholder in its render list and ships a lockfile",
 		(id) => {
 			const loaded = store.load(id);
@@ -126,7 +131,7 @@ describe("template store", () => {
 
 	it("rejects unknown and malformed template ids", () => {
 		expect(store.load("nope")).toMatchObject({ ok: false, error: { code: "template_not_found" } });
-		expect(store.load("../fullstack-kimmbo")).toMatchObject({
+		expect(store.load("../apiweb")).toMatchObject({
 			ok: false,
 			error: { code: "template_not_found" },
 		});

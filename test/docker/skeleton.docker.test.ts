@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { toProductSlug } from "../../src/domain/templates/render.js";
@@ -37,7 +37,7 @@ describe.skipIf(!dockerAvailable)(
 		const fullstack = dockerAvailable ? setup(FULLSTACK, "turno-local") : undefined;
 
 		it(
-			"fullstack-kimmbo passes npm ci and npm run check in Docker against a real Postgres",
+			"apiweb passes npm ci and npm run check in Docker against a real Postgres",
 			async () => {
 				if (!fullstack) return;
 				const built = await buildBootstrapOnly(fullstack.deps, { runId: fullstack.runId });
@@ -86,6 +86,28 @@ describe.skipIf(!dockerAvailable)(
 		);
 
 		it(
+			"api passes npm ci and npm run check in Docker against a real Postgres, without any web workspace",
+			async () => {
+				const apiRun = setup(["backend-express-kimmbo"], "api-demo");
+				const built = await buildBootstrapOnly(apiRun.deps, { runId: apiRun.runId });
+				if (!built.ok) throw new Error(`${built.error.code}: ${built.error.message}`);
+				const logs = built.value.checks.map((c) => logOf(apiRun.home, c.logPath));
+				expect(
+					built.value.checks.map((c) => [c.argv.join(" "), c.exitCode, c.isolated]),
+					logs.at(-1)?.slice(-4000),
+				).toEqual([
+					["npm ci", 0, true],
+					["npm run check", 0, true],
+				]);
+				expect(built.value.passed).toBe(true);
+				expect(logs[1] ?? "").toContain("health.e2e.test.ts");
+				expect(existsSync(join(apiRun.target, "web"))).toBe(false);
+				expect(labeled("ps", apiRun.runId)).toEqual([]);
+			},
+			30 * MINUTES,
+		);
+
+		it(
 			"static-landing passes npm ci and npm run check in Docker",
 			async () => {
 				const staticRun = setup(["static-landing"], "landing-demo");
@@ -100,6 +122,29 @@ describe.skipIf(!dockerAvailable)(
 					"Static landing check OK",
 				);
 				expect(labeled("ps", staticRun.runId)).toEqual([]);
+			},
+			30 * MINUTES,
+		);
+
+		it(
+			"mobile passes npm ci and npm run check in Docker",
+			async () => {
+				const mobileRun = setup(["mobile-expo"], "mobile-demo");
+				const started = Date.now();
+				const built = await buildBootstrapOnly(mobileRun.deps, { runId: mobileRun.runId });
+				if (!built.ok) throw new Error(`${built.error.code}: ${built.error.message}`);
+				console.info(`mobile skeleton took ${Math.round((Date.now() - started) / 1000)}s`);
+				const logs = built.value.checks.map((c) => logOf(mobileRun.home, c.logPath));
+				expect(
+					built.value.checks.map((c) => [c.argv.join(" "), c.exitCode, c.isolated]),
+					logs.at(-1)?.slice(-4000),
+				).toEqual([
+					["npm ci", 0, true],
+					["npm run check", 0, true],
+				]);
+				expect(built.value.passed).toBe(true);
+				expect(logs[1] ?? "").toContain("greeting.test.ts");
+				expect(labeled("ps", mobileRun.runId)).toEqual([]);
 			},
 			30 * MINUTES,
 		);

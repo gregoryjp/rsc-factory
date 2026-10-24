@@ -219,12 +219,12 @@ describe("audit mode (E17)", () => {
 
 	it("uses the policy of a detected template id", async () => {
 		const dir = makeRepo({
-			"template.json": '{"id":"static-landing","presetIds":["x"],"render":[]}\n',
+			"template.json": '{"id":"landing","presetIds":["x"],"render":[]}\n',
 		});
 		const { deps } = setup();
 		const result = await auditRepo(deps, { target: dir, review: false });
 		if (!result.ok) throw new Error(result.error.message);
-		expect(result.value).toMatchObject({ checkMode: "template", templateId: "static-landing" });
+		expect(result.value).toMatchObject({ checkMode: "template", templateId: "landing" });
 		expect(result.value.checks.map((c) => c.argv.join(" "))).toEqual(["npm ci", "npm run check"]);
 	});
 

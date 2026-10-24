@@ -1,5 +1,5 @@
 {
-	"fullstack-kimmbo": {
+	"apiweb": {
 		"install": ["npm", "ci"],
 		"test": ["npm", "run", "test", "--workspaces", "--if-present"],
 		"check": ["npm", "run", "check"],
@@ -18,13 +18,29 @@
 			}
 		}
 	},
-	"static-landing": {
+	"api": {
 		"install": ["npm", "ci"],
-		"test": ["npm", "run", "check"],
+		"test": ["npm", "run", "test", "--workspaces", "--if-present"],
+		"check": ["npm", "run", "check"]
+	},
+	"landing": {
+		"install": ["npm", "ci"],
+		"test": ["npm", "test"],
 		"check": ["npm", "run", "check"],
 		"preview": {
 			"install": ["npm", "ci"],
 			"staticDir": ".",
+			"routesFile": "ui-routes.json"
+		}
+	},
+	"mobile": {
+		"install": ["npm", "ci"],
+		"test": ["npm", "test"],
+		"check": ["npm", "run", "check"],
+		"preview": {
+			"install": ["npm", "ci"],
+			"build": ["npm", "run", "build:web"],
+			"staticDir": "dist",
 			"routesFile": "ui-routes.json"
 		}
 	}

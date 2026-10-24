@@ -5,6 +5,7 @@
 	"type": "module",
 	"engines": { "node": ">=22" },
 	"scripts": {
-		"check": "node scripts/check.mjs"
+		"test": "node --test",
+		"check": "node scripts/check.mjs && node --test"
 	}
 }

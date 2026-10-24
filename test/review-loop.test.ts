@@ -366,23 +366,20 @@ describe("findings, refuter and repair", () => {
 		expect(existsSync(call?.cwd ?? "")).toBe(false);
 	});
 
-	it("approver repair without critical/high findings runs one repair round while budget remains, then passes when exhausted", async () => {
+	it("approver repair without critical/high findings never triggers an automatic repair: the task passes and minor findings stay accepted_open", async () => {
 		const env = await createBuildEnv({
 			tasks: [task("add")],
-			builder: [...base, repairEdit],
+			builder: base,
 			reviewers: {
-				security: [
-					findingsReview("security", [reviewFinding({ severity: "low", id: "L1" })]),
-					passReview("security"),
-				],
-				approver: [approverSays("repair"), approverSays("accept")],
+				security: [findingsReview("security", [reviewFinding({ severity: "low", id: "L1" })])],
+				approver: [approverSays("repair")],
 			},
 		});
 		const summary = await run(env);
 		expect(summary.tasks[0]?.outcome).toBe("done");
-		expect(env.buildOf("add")?.repairs).toBe(1);
-		expect(env.roleCalls("reviewer-security")).toHaveLength(2);
-		expect(env.roleCalls("reviewer-code")).toHaveLength(2);
+		expect(env.buildOf("add")?.repairs).toBe(0);
+		expect(env.builderCalls()).toHaveLength(2);
+		expect(env.roleCalls("reviewer-security")).toHaveLength(1);
 	});
 
 	it("a refuted high finding no longer blocks but is kept with its refutation", async () => {

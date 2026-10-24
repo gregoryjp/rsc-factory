@@ -97,8 +97,5 @@ export const evaluateGate = (input: GateInput): GateDecision => {
 		];
 		return { decision: "repair", open: open.map((finding) => finding.uid), areas };
 	}
-	if (input.approver === "repair" && input.repairBudgetRemains) {
-		return { decision: "repair", open: [], areas: [] };
-	}
 	return { decision: "pass" };
 };

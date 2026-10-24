@@ -39,11 +39,22 @@ export const architectPrompt = (spec: SpecOutput): string =>
 		dataBlock("SPEC_DATA", JSON.stringify(spec, null, 1)),
 	].join("\n");
 
-export const plannerPrompt = (spec: SpecOutput, architecture: ArchitectOutput): string =>
+export const plannerPrompt = (
+	spec: SpecOutput,
+	architecture: ArchitectOutput,
+	templateProvides: readonly string[] = [],
+): string =>
 	[
 		"Task: split the specification into small executable tasks with dependencies.",
 		DATA_REMINDER,
 		"Every must requirement must be covered by at least one task. Dependencies reference task keys.",
+		...(templateProvides.length > 0
+			? [
+					"The product repository starts from a template that already provides the items in TEMPLATE_PROVIDES. Do not create tasks that only scaffold, set up or re-create them; build on them and reuse their file paths. Every task must change behavior that a new failing test can demonstrate.",
+					"",
+					dataBlock("TEMPLATE_PROVIDES", templateProvides.join("\n")),
+				]
+			: []),
 		"",
 		dataBlock("SPEC_DATA", JSON.stringify(spec, null, 1)),
 		"",

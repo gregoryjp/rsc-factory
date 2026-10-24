@@ -18,13 +18,31 @@ const BUDGET_SUBTYPE = "error_max_budget_usd";
 const EnvelopeSchema = z.object({
 	is_error: z.boolean(),
 	subtype: z.string(),
-	terminal_reason: z.string().optional(),
-	total_cost_usd: z.number().optional(),
+	terminal_reason: z
+		.string()
+		.nullish()
+		.transform((value) => value ?? undefined),
+	total_cost_usd: z
+		.number()
+		.nullish()
+		.transform((value) => value ?? undefined),
 	structured_output: z.unknown().optional(),
-	errors: z.array(z.string()).optional(),
-	result: z.string().optional(),
-	api_error_status: z.number().optional(),
-	modelUsage: z.record(z.string(), z.unknown()).optional(),
+	errors: z
+		.array(z.string())
+		.nullish()
+		.transform((value) => value ?? undefined),
+	result: z
+		.string()
+		.nullish()
+		.transform((value) => value ?? undefined),
+	api_error_status: z
+		.number()
+		.nullish()
+		.transform((value) => value ?? undefined),
+	modelUsage: z
+		.record(z.string(), z.unknown())
+		.nullish()
+		.transform((value) => value ?? undefined),
 });
 type Envelope = z.infer<typeof EnvelopeSchema>;
 
@@ -57,6 +75,7 @@ export const buildClaudeArgs = (request: ProviderRequest): string[] => [
 	"project",
 	"--strict-mcp-config",
 	"--disable-slash-commands",
+	"--safe-mode",
 	"--model",
 	request.model,
 	"--max-budget-usd",

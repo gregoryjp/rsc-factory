@@ -43,7 +43,7 @@ Fases nuevas: `green_observed → reviewing → reviewed → merged`. En `review
 
 ### 6b. Approver `repair` sin hallazgos críticos/altos abiertos
 
-Decisión: si el approver recomienda `repair` y no queda ningún hallazgo crítico/alto abierto, el gate pide una ronda de reparación mientras quede presupuesto (`repairsPerTask`), usando los `repairTasks` del approver (y los hallazgos abiertos no severos) y luego la re-revisión completa habitual. Si el presupuesto está agotado, el gate pasa; los hallazgos no severos quedan en la base como `open` y `factory status` los lista como `accepted_open`. El approver sigue sin poder bajar un bloqueo ni anular hallazgos severos abiertos.
+Decisión (revisada 2026-10-24 tras la primera corrida real): si el approver recomienda `repair` y no queda ningún hallazgo crítico/alto abierto, el gate **pasa** sin reparación automática; los hallazgos no severos quedan en la base como `open` y `factory status` / el informe los listan como `accepted_open`. Motivo medido: en el run real del PRD mini, una reparación pedida solo por hallazgos menores reestructuró el HTML, rompió los tests de la tarea ya en verde y agotó las reparaciones, bloqueando código aprobado; además gasta cuota. La versión anterior (una ronda de reparación mientras quedara presupuesto) se descarta. El approver sigue sin poder bajar un bloqueo ni anular hallazgos severos abiertos.
 
 ### 7. `blocked-diff`
 

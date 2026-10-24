@@ -48,22 +48,26 @@ const makePreview = (home: string) =>
 		homeDir: homedir(),
 	});
 
-const skeletonPolicy = (): PreviewPolicy => {
+const skeletonPolicy = (templateId = "apiweb"): PreviewPolicy => {
 	const policy = parseCheckPolicy(
 		readFileSync(join(REPO_ROOT, "factory/policies/checks.json"), "utf8"),
 	);
 	if (!policy.ok) throw new Error(policy.error.message);
-	const preview = policy.value["fullstack-kimmbo"]?.preview;
+	const preview = policy.value[templateId]?.preview;
 	if (!preview) throw new Error("no preview policy");
 	return preview;
 };
 
-const bootstrapSkeleton = (home: string) => {
+const bootstrapSkeleton = (
+	home: string,
+	presetIds: string[] = FULLSTACK,
+	projectName = "turno-local",
+) => {
 	const exec = createExecEnv(home);
 	const { runId, target } = seedPlanningRun(exec.env, {
-		presetIds: FULLSTACK,
+		presetIds,
 		target: join(makeHomeTempDir(), "product"),
-		projectName: "turno-local",
+		projectName,
 	});
 	const boot = bootstrapProduct(exec.deps, { runId });
 	if (!boot.ok) throw new Error(`${boot.error.code}: ${boot.error.message}`);
@@ -196,7 +200,7 @@ describe.skipIf(!dockerAvailable)(
 	`browser evidence acceptance (${dockerAvailable ? "real Docker + Playwright" : SKIP_REASON})`,
 	() => {
 		it(
-			"previews the fullstack-kimmbo skeleton with postgres, migrate, api and the /api proxy: two PNGs, axe ran, no overflow, objects cleaned",
+			"previews the apiweb skeleton with postgres, migrate, api and the /api proxy: two PNGs, axe ran, no overflow, objects cleaned",
 			async () => {
 				const home = makeHomeTempDir();
 				const { runId, commit, productDir } = bootstrapSkeleton(home);
@@ -322,6 +326,54 @@ describe.skipIf(!dockerAvailable)(
 				expect(outcome.teardownError).toBeNull();
 				expect(labeled("ps", runId)).toEqual([]);
 				expect(labeled("network", runId)).toEqual([]);
+			},
+			45 * MINUTES,
+		);
+
+		it(
+			"previews the mobile template through build:web: two PNGs, axe ran, objects cleaned, kimmbo-prod untouched",
+			async () => {
+				const home = makeHomeTempDir();
+				const { runId, commit, productDir } = bootstrapSkeleton(
+					home,
+					["mobile-expo"],
+					"mobile-demo",
+				);
+				const preview = skeletonPolicy("mobile");
+				const routes = parseUiRoutes(readFileSync(join(productDir, "ui-routes.json"), "utf8"));
+				if (!routes.ok) throw new Error(routes.error.message);
+				const before = allContainerNames().filter((name) => name.startsWith("kimmbo-prod-"));
+				const outDir = join(home, "runs", runId, "ui", commit);
+				const started = Date.now();
+				const outcome = await makePreview(home).capture({
+					runId,
+					commitSha: commit,
+					productDir,
+					policy: preview,
+					routes: routes.value,
+					auth: null,
+					outDir,
+				});
+				console.info(`mobile preview capture took ${Math.round((Date.now() - started) / 1000)}s`);
+				if (outcome.status !== "captured") throw new Error(`unavailable: ${outcome.reason}`);
+
+				expect(UiEvidenceSchema.safeParse(outcome.evidence).success).toBe(true);
+				expect(outcome.evidence.pages.map((p) => p.viewport.width).sort((a, b) => a - b)).toEqual([
+					390, 1440,
+				]);
+				for (const page of outcome.evidence.pages) {
+					if (page.status !== "captured") throw new Error(`unexpected ${page.status}`);
+					const file = join(outDir, page.screenshot.path);
+					expect(statSync(file).size).toBeGreaterThan(1000);
+					expect(readFileSync(file).subarray(0, 8).toString("hex")).toBe(PNG_MAGIC);
+					expect(Array.isArray(page.axe.violations)).toBe(true);
+				}
+				expect(outcome.teardownError).toBeNull();
+				expect(labeled("ps", runId)).toEqual([]);
+				expect(labeled("network", runId)).toEqual([]);
+				expect(allContainerNames().filter((name) => name.startsWith("kimmbo-prod-"))).toEqual(
+					before,
+				);
 			},
 			45 * MINUTES,
 		);

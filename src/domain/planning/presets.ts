@@ -1,4 +1,8 @@
-export type PresetId = "backend-express-kimmbo" | "web-react-vite" | "static-landing";
+export type PresetId =
+	| "backend-express-kimmbo"
+	| "web-react-vite"
+	| "static-landing"
+	| "mobile-expo";
 
 export type PresetEntry = {
 	id: PresetId;
@@ -24,7 +28,13 @@ export const PRESETS: Record<PresetId, PresetEntry> = {
 		id: "static-landing",
 		docPath: "factory/presets/static-landing.md",
 		appliesTo: "Static pages without API or database",
-		conflictsWith: ["backend-express-kimmbo", "web-react-vite"],
+		conflictsWith: ["backend-express-kimmbo", "web-react-vite", "mobile-expo"],
+	},
+	"mobile-expo": {
+		id: "mobile-expo",
+		docPath: "factory/presets/mobile-expo.md",
+		appliesTo: "Mobile apps with Expo and React Native, reviewed through the web export",
+		conflictsWith: ["static-landing", "web-react-vite"],
 	},
 };
 
