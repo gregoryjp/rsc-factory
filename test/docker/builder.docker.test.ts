@@ -47,10 +47,10 @@ const COMPOSITION_PATH = join(
 
 const composeWithPing = (): string => {
 	const base = readFileSync(COMPOSITION_PATH, "utf8");
-	const anchor = 'import { createHealthModule } from "./modules/health/index.js";\n';
+	const anchor = "\n\nexport const API_PREFIX";
 	const mounts = "...(overrides.extraProtectedMounts ?? []),";
 	return base
-		.replace(anchor, `${anchor}import { createPingModule } from "./modules/ping/index.js";\n`)
+		.replace(anchor, `\nimport { createPingModule } from "./modules/ping/index.js";${anchor}`)
 		.replace(mounts, `{ path: "/ping", router: createPingModule() },\n\t\t\t${mounts}`);
 };
 
@@ -190,10 +190,16 @@ describe.skipIf(!dockerAvailable)(
 				expect(mainHead.value).toBe(delivered.value.mainCommit);
 				const deliveryChecks = afterDelivery.filter((c) => c.cwd.startsWith("delivery-"));
 				expect(
-					deliveryChecks.map((c) => [c.cwd, c.argv.join(" "), c.exitCode, c.isolated]),
+					deliveryChecks.map((c) => [
+						c.cwd,
+						c.cwd === "delivery-sast" ? "sast-scan" : c.argv.join(" "),
+						c.exitCode,
+						c.isolated,
+					]),
 					deliveryChecks.map((c) => log(c.id).slice(-1500)).join("\n"),
 				).toEqual([
 					["delivery-audit", "npm audit --omit=dev --json", 1, true],
+					["delivery-sast", "sast-scan", 0, true],
 					["delivery-report", "npm ci", 0, true],
 					["delivery-report", "npm run check", 0, true],
 					["delivery-main", "npm ci", 0, true],

@@ -96,13 +96,16 @@ describe("hardening", () => {
 
 	it("answers 503 when a request exceeds the timeout", async () => {
 		const slow = Router().get("/", () => undefined);
+		const { app: authApp } = buildTestProduct({
+			extraProtectedMounts: [{ path: "/slow", router: slow }],
+		});
 		const { app } = buildTestProduct({
 			requestTimeoutMs: 100,
 			extraProtectedMounts: [{ path: "/slow", router: slow }],
 		});
-		const login = await request(app).post("/api/v1/auth/register").send(credentials());
+		const login = await request(authApp).post("/api/v1/auth/register").send(credentials());
 		expect(login.status).toBe(201);
-		const session = await request(app).post("/api/v1/auth/login").send(credentials());
+		const session = await request(authApp).post("/api/v1/auth/login").send(credentials());
 		const response = await request(app)
 			.get("/api/v1/slow")
 			.set("Authorization", `Bearer ${session.body.data.accessToken}`);

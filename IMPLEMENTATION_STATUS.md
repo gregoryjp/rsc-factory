@@ -524,3 +524,13 @@ Tres flujos paralelos fusionados en `integration-p0`. Verificado: typecheck, lin
 - **H7b** (`d550d26`): toda llamada a Codex corre en contenedor Docker endurecido (rootfs de solo lectura, sin capacidades, solo el proyecto y una copia de `auth.json`); sin Docker falla cerrado. Riesgo aceptado: red abierta. ADR 0018.
 - **H7c** (`6dc6e4a`): respaldo automático de un salto (cerebro → Codex `gpt-6-astra` high; Sonnet → Codex `gpt-6-sol`; UX/UI → Claude Sonnet) ante binario/sesión/modelo no disponible, cuota agotada o errores repetidos; no ante salida inválida ni presupuesto. Evento `provider.fallback`. ADR 0019.
 - **Sin probar**: un builder Codex real (solo confinamiento verificado), el mensaje real de cuota agotada de Codex y patrones de error de Claude (supuestos).
+
+## P1 y P2: producción de la API, SAST y calidad de plantillas (2026-10-25)
+
+Verificado tras la fusión: typecheck, lint, 1037 pruebas unitarias y suite Docker completa en verde; sin objetos Docker huérfanos.
+
+- **API (`api`, `apiweb`)**: paginación acotada (`check:pagination`), idempotencia (middleware sin rutas conectadas aún), log de auditoría append-only, apagado ordenado con liveness/readiness, roles de BD con mínimos privilegios, backup/restore, Dockerfile multi-etapa sin root, `docker-compose.prod.example.yml`, CI de GitHub con acciones fijadas por SHA, `check:deploy`. Límites: CI y compose sin ejecutar en un host real; el trigger de auditoría bloquea purgas sin rol migrador.
+- **Motor**: gate SAST determinista propio (`factory/sast/scan.mjs`, 23 reglas por línea, sin cuenta ni coste), con baseline y bloqueo de hallazgos `high` nuevos (`sast_new_finding`, `sast_unavailable`). ADR 0020. Heurístico: sin flujo de datos; Semgrep queda como siguiente paso.
+- **Mobile y front**: `secureFetch` solo https, reglas de código fuente, bloqueo biométrico opcional, `docs/SECURITY-MOBILE.md`; presupuesto de rendimiento, WCAG 2.2 ampliado, tabla i18n y `DESIGN-SYSTEM.md` por plantilla.
+- **Tests**: ids Docker con sal por proceso (sin colisiones); el test de timeout de la API ya no depende de la velocidad de argon2; fixture del builder alineado con idempotencia y SAST.
+- **Pendiente**: builder Codex real, mensaje real de cuota de Codex, run completo con ambos proveedores, Redis para rate limit multi-instancia, Semgrep.
