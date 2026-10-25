@@ -1,3 +1,4 @@
+import { t } from "../i18n/t";
 import styles from "./States.module.css";
 
 interface ErrorStateProps {
@@ -6,7 +7,7 @@ interface ErrorStateProps {
 	retryLabel?: string;
 }
 
-export function ErrorState({ message, onRetry, retryLabel = "Reintentar" }: ErrorStateProps) {
+export function ErrorState({ message, onRetry, retryLabel = t("state.retry") }: ErrorStateProps) {
 	return (
 		<div className={styles.state} role="alert">
 			<p className={styles.title}>{message}</p>

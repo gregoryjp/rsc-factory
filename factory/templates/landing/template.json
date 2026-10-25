@@ -7,6 +7,7 @@
 		"AGENTS.md",
 		"README.md",
 		"docs/STATE.md",
+		"docs/DESIGN-SYSTEM.md",
 		"index.html",
 		"legal/aviso-legal.html",
 		"legal/politica-privacidad.html",
@@ -20,6 +21,8 @@
 		"scripts/check.mjs validating pages: links, CSP, no inline script/style/handlers, safe target=_blank, no http:// or external assets, AA token contrast; warns on [PENDIENTE] markers",
 		"npm test runs node --test (place tests as test/**/*.test.mjs, node:test + node:assert, no extra dependencies)",
 		"npm run check runs scripts/check.mjs and then the tests",
-		"ui-routes.json at the root with the default [\"/\"]: a JSON array of absolute route paths captured by the browser (keep this exact format)"
+		"ui-routes.json at the root with the default [\"/\"]: a JSON array of absolute route paths captured by the browser (keep this exact format)",
+		"docs/DESIGN-SYSTEM.md (tokens, spacing and type scale, states) and i18n/<lang>.json, a string table that data-i18n elements in the HTML must match (checked)",
+		"check.mjs also enforces a JS/CSS/image byte budget, img width/height/loading, font-display, heading order, form labels, ARIA misuse, empty links, focus outlines and reduced-motion neutralization"
 	]
 }
