@@ -517,3 +517,10 @@ Tres flujos paralelos fusionados en `integration-p0`. Verificado: typecheck, lin
 - **C · Front y móvil**: CSP, páginas legales provisionales con `[PENDIENTE]`, tokens con modo oscuro, WCAG 2.2, componentes de estado, `check` que falla ante incumplimientos; móvil con `expo-secure-store` y validación de deep links. Los textos legales son estructura, no asesoría.
 - **Fixture Docker del builder** actualizado a la composición nueva (ping protegido por defecto) y a la auditoría de entrega.
 - **Pendiente**: los tests Docker usan ids fijos (`factory-run_2-*`) y chocan si corren dos suites a la vez; hacerlos únicos por worktree. P1/P2 del análisis y H7 (segundo proveedor, ver ADR pendiente) sin empezar.
+
+## H7: segundo proveedor Codex y respaldo por rol (2026-10-25)
+
+- **H7** (`4305636`): proveedor Codex CLI; `roles.json` con `{provider, model, effort?, fallback?}` por rol. Cerebro (spec-writer, architect, planner, approver): Claude Opus; builder, reviewers security/code/legal y refuter: Claude Sonnet; reviewers UX/UI: Codex `gpt-6-astra` medium. ADR 0017. Codex cuesta 0 USD en el ledger; tope `maxCodexCallsPerRun` (12, estimado).
+- **H7b** (`d550d26`): toda llamada a Codex corre en contenedor Docker endurecido (rootfs de solo lectura, sin capacidades, solo el proyecto y una copia de `auth.json`); sin Docker falla cerrado. Riesgo aceptado: red abierta. ADR 0018.
+- **H7c** (`6dc6e4a`): respaldo automático de un salto (cerebro → Codex `gpt-6-astra` high; Sonnet → Codex `gpt-6-sol`; UX/UI → Claude Sonnet) ante binario/sesión/modelo no disponible, cuota agotada o errores repetidos; no ante salida inválida ni presupuesto. Evento `provider.fallback`. ADR 0019.
+- **Sin probar**: un builder Codex real (solo confinamiento verificado), el mensaje real de cuota agotada de Codex y patrones de error de Claude (supuestos).
