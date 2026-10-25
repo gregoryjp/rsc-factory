@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const NonEmpty = z.string().min(1);
 
-export const ReviewAreaSchema = z.enum(["security", "code", "ux", "ui"]);
+export const ReviewAreaSchema = z.enum(["security", "code", "ux", "ui", "legal"]);
 export type ReviewArea = z.infer<typeof ReviewAreaSchema>;
 
 export const SeveritySchema = z.enum(["critical", "high", "medium", "low"]);

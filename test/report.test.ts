@@ -105,6 +105,7 @@ describe("run report", () => {
 		expect(add?.reviews.map((r) => [r.area, r.verdict])).toEqual([
 			["security", "pass"],
 			["code", "pass"],
+			["legal", "not_applicable"],
 			["ux", "not_applicable"],
 			["ui", "not_applicable"],
 		]);

@@ -2,6 +2,7 @@ import { join } from "node:path";
 import type { Run } from "../../contracts/entities.js";
 import type { RunEvent } from "../../contracts/events.js";
 import type { RunState, TaskState } from "../../contracts/states.js";
+import { type AuditSummary, summarizeAudit } from "../../domain/depaudit/summary.js";
 import { deliveryStateOf } from "../../domain/report/delivery-state.js";
 import { type Failure, fail, ok, type Result } from "../../shared/result.js";
 import type { BudgetSummary } from "../budget/ports.js";
@@ -28,6 +29,7 @@ export type RunStatus = {
 		reviewTasks: string[];
 		reviews: TaskReviewSummary[];
 	};
+	dependencyAudit: AuditSummary;
 	delivery: {
 		target: string | null;
 		status: string;
@@ -164,6 +166,7 @@ export const getRunStatus = (
 				.filter((build) => build.requiresReview)
 				.map((build) => storage.taskMeta.getByTask(build.taskId)?.key ?? build.taskId),
 		},
+		dependencyAudit: summarizeAudit(storage.events.list(run.id, {})),
 		taskCounts: storage.tasks.countByState(run.id),
 		budget: storage.budgets.summary(run.id),
 		quotaWait: (() => {

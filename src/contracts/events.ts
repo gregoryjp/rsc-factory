@@ -33,6 +33,8 @@ export const EventTypeSchema = z.enum([
 	"provider.retry",
 	"build.canceled",
 	"audit.completed",
+	"depaudit.recorded",
+	"depaudit.warning",
 	"delivery.declared",
 	"delivery.started",
 	"delivery.report_committed",

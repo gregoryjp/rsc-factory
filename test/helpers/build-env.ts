@@ -34,11 +34,12 @@ import { gitEnv } from "./exec-env.js";
 
 export const NODE_TEMPLATE = "node-test";
 
-const NODE_POLICY = {
+const policyWith = (audit?: string[]) => ({
 	[NODE_TEMPLATE]: {
 		install: [],
 		test: ["node", "--test"],
 		check: ["node", "--test"],
+		...(audit ? { audit } : {}),
 		preview: {
 			install: ["true"],
 			staticDir: "web",
@@ -46,7 +47,8 @@ const NODE_POLICY = {
 			authFile: "web/ui-auth.json",
 		},
 	},
-};
+});
+const NODE_POLICY = policyWith();
 
 const good = (output: unknown): ScriptedResult => ({
 	ok: true,
@@ -103,6 +105,7 @@ export type ReviewScripts = {
 	code?: ScriptedResult[];
 	ux?: ScriptedResult[];
 	ui?: ScriptedResult[];
+	legal?: ScriptedResult[];
 	refuter?: ScriptedResult[];
 	approver?: ScriptedResult[];
 };
@@ -115,6 +118,7 @@ export type BuildEnvOptions = {
 	reviewHook?: (request: ProviderRequest, index: number) => void;
 	hook?: (request: ProviderRequest, index: number) => void;
 	wrapRunner?: (runner: CheckRunnerPort) => CheckRunnerPort;
+	audit?: string[];
 	files?: Record<string, string>;
 	spec?: SpecOutput;
 	template?: {
@@ -152,6 +156,7 @@ const REVIEW_SCRIPT_KEYS: Record<string, keyof ReviewScripts> = {
 	"reviewer-code": "code",
 	"reviewer-ux": "ux",
 	"reviewer-ui": "ui",
+	"reviewer-legal": "legal",
 	"review-refuter": "refuter",
 	approver: "approver",
 };
@@ -174,6 +179,9 @@ const autoOutput = (request: ProviderRequest): unknown => {
 			findings: [],
 			requiresReviewAck: [],
 		};
+	}
+	if (request.role === "reviewer-legal") {
+		return { area: "legal", verdict: "pass", findings: [], requiresReviewAck: [] };
 	}
 	if (request.role === "reviewer-code") {
 		return {
@@ -262,6 +270,7 @@ export const createBuildEnv = async (options: BuildEnvOptions) => {
 		"reviewer-code": options.reviewers?.code ?? [],
 		"reviewer-ux": options.reviewers?.ux ?? [],
 		"reviewer-ui": options.reviewers?.ui ?? [],
+		"reviewer-legal": options.reviewers?.legal ?? [],
 		"review-refuter": options.reviewers?.refuter ?? [],
 		approver: options.reviewers?.approver ?? [],
 	});
@@ -272,7 +281,7 @@ export const createBuildEnv = async (options: BuildEnvOptions) => {
 		: {
 				read: (path) =>
 					path === "factory/policies/checks.json"
-						? ok({ content: JSON.stringify(NODE_POLICY), sha256: "0".repeat(64) })
+						? ok({ content: JSON.stringify(policyWith(options.audit)), sha256: "0".repeat(64) })
 						: base.factoryFiles.read(path),
 			};
 	const target = options.template?.target ?? join(makeTempDir(), "product");
@@ -399,6 +408,7 @@ export const createChainEnv = (options: ChainEnvOptions) => {
 		"reviewer-code": options.reviewers?.code ?? [],
 		"reviewer-ux": options.reviewers?.ux ?? [],
 		"reviewer-ui": options.reviewers?.ui ?? [],
+		"reviewer-legal": options.reviewers?.legal ?? [],
 		"review-refuter": options.reviewers?.refuter ?? [],
 		approver: options.reviewers?.approver ?? [],
 	});

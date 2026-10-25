@@ -10,6 +10,7 @@ export const RETRYABLE_REASONS: readonly string[] = [
 	"ui_config_invalid",
 	"repairs_exhausted",
 	"green_not_reached",
+	"audit_new_vulnerability",
 	"red_not_observed",
 	"red_not_test_only",
 	"protected_change",

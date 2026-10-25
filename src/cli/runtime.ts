@@ -55,6 +55,7 @@ const OPTIONAL_FIXTURE_ROLES: readonly string[] = [
 	"reviewer-code",
 	"reviewer-ux",
 	"reviewer-ui",
+	"reviewer-legal",
 	"review-refuter",
 	"approver",
 ];

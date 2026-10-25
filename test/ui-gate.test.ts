@@ -4,7 +4,7 @@ import { evaluateGate } from "../src/domain/review/gate.js";
 import type { ReviewRecord } from "../src/domain/review/types.js";
 
 const HEAD = "a".repeat(40);
-const AREAS: ReviewArea[] = ["security", "code", "ux", "ui"];
+const AREAS: ReviewArea[] = ["security", "code", "legal", "ux", "ui"];
 
 const record = (area: ReviewArea, over: Partial<ReviewRecord> = {}): ReviewRecord => ({
 	area,
@@ -27,8 +27,8 @@ const gate = (reviews: ReviewRecord[], approver: "accept" | "repair" | "block" =
 		repairBudgetRemains: false,
 	});
 
-describe("gate G4 with four areas", () => {
-	it("passes when all four areas pass", () => {
+describe("gate G4 with five areas", () => {
+	it("passes when all five areas pass", () => {
 		expect(gate(AREAS.map((area) => record(area)))).toEqual({ decision: "pass" });
 	});
 
@@ -36,10 +36,45 @@ describe("gate G4 with four areas", () => {
 		const reviews = [
 			record("security"),
 			record("code"),
+			record("legal", {
+				verdict: "not_applicable",
+				reason: "no personal data processing detected",
+			}),
 			record("ux", { verdict: "not_applicable", reason: "no UI changes" }),
 			record("ui", { verdict: "not_applicable", reason: "no UI changes" }),
 		];
 		expect(gate(reviews)).toEqual({ decision: "pass" });
+	});
+
+	it("is incomplete when the legal review is missing", () => {
+		const decision = gate(AREAS.filter((a) => a !== "legal").map((a) => record(a)));
+		expect(decision).toMatchObject({
+			decision: "blocked",
+			reason: "review_incomplete",
+			detail: expect.stringContaining("legal"),
+		});
+	});
+
+	it("a blocked legal review blocks the gate even when the approver accepts", () => {
+		const reviews = AREAS.map((a) =>
+			a === "legal" ? record(a, { verdict: "blocked", reason: "could not inspect" }) : record(a),
+		);
+		expect(gate(reviews, "accept")).toMatchObject({
+			decision: "blocked",
+			reason: "review_blocked",
+			detail: expect.stringContaining("legal"),
+		});
+	});
+
+	it("rejects a legal not_applicable without an engine reason and a stale legal review", () => {
+		const noReason = AREAS.map((a) =>
+			a === "legal" ? record(a, { verdict: "not_applicable" }) : record(a),
+		);
+		expect(gate(noReason)).toMatchObject({ decision: "blocked", reason: "review_incomplete" });
+		const stale = AREAS.map((a) =>
+			a === "legal" ? record(a, { commitSha: "b".repeat(40) }) : record(a),
+		);
+		expect(gate(stale)).toMatchObject({ decision: "blocked", reason: "review_stale" });
 	});
 
 	it("is incomplete when ux or ui is missing", () => {

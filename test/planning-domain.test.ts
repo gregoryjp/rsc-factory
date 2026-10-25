@@ -232,6 +232,21 @@ describe("applyRiskFloor", () => {
 		const text = applyRiskFloor(task("a"), ["El operador cambia su contraseña"]);
 		expect(text.risk).toBe("high");
 	});
+	it.each([
+		"Store personal data of customers",
+		"Mostrar la politica de privacy",
+		"El usuario da su consent",
+		"Cumplir GDPR",
+		"Cumplir RGPD",
+		"Banner de cookie",
+		"Analytics and tracking of visits",
+		"Permitir delete account",
+		"Tratar datos personales",
+	])("keeps personal-data requirement text at high risk: %s", (text) => {
+		const adjusted = applyRiskFloor(task("a", { risk: "low" }), [text]);
+		expect(adjusted.risk).toBe("high");
+		expect(adjusted.riskReasons.join(" ")).toContain("personal-data");
+	});
 	it("keeps the model risk when nothing matches and never lowers it", () => {
 		expect(applyRiskFloor(task("a", { risk: "medium" }), ["list tickets"]).risk).toBe("medium");
 		expect(applyRiskFloor(task("a", { risk: "high" }), ["list tickets"])).toMatchObject({

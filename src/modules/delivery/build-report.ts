@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { Check } from "../../contracts/entities.js";
 import { UiEvidenceSchema } from "../../contracts/ui-evidence.js";
 import { isCheckPassed } from "../../domain/checks/evidence.js";
+import { summarizeAudit } from "../../domain/depaudit/summary.js";
 import { releaseStatusOf } from "../../domain/release/status.js";
 import { deliveryStateOf } from "../../domain/report/delivery-state.js";
 import type {
@@ -27,7 +28,7 @@ export type ReportOptions = { preDelivery?: boolean };
 export const FINAL_CHECK_CWD = "integration-final";
 export const DELIVERY_CHECK_PREFIX = "delivery-";
 
-const AREA_ORDER = ["security", "code", "ux", "ui"];
+const AREA_ORDER = ["security", "code", "legal", "ux", "ui"];
 const SEVERITY_ORDER = ["critical", "high", "medium", "low"];
 const SEVERE = new Set(["critical", "high"]);
 const UI_EVIDENCE_FILE = "ui-evidence.json";
@@ -41,6 +42,7 @@ const PHASE_OF_ROLE: Record<string, "planning" | "build" | "review"> = {
 	"reviewer-code": "review",
 	"reviewer-ux": "review",
 	"reviewer-ui": "review",
+	"reviewer-legal": "review",
 	"review-refuter": "review",
 	approver: "review",
 };
@@ -413,6 +415,7 @@ export const buildRunReport = (
 			critical: c.critical,
 			requirementIds: c.requirementIds,
 		})),
+		dependencyAudit: summarizeAudit(events),
 		retries: {
 			total: tasks.reduce((sum, task) => sum + task.retries, 0),
 			repairs: tasks.reduce((sum, task) => sum + task.repairs, 0),

@@ -31,6 +31,7 @@ const TEST_BUDGET_CONFIG = JSON.stringify({
 		"reviewer-code": 1.5,
 		"reviewer-ux": 1.5,
 		"reviewer-ui": 1.5,
+		"reviewer-legal": 1.5,
 		"review-refuter": 1.5,
 		approver: 1,
 	},

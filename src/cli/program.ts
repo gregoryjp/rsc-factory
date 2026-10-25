@@ -229,6 +229,11 @@ export const runCli = async (
 								(r) =>
 									`  reviews ${r.key}: ${r.reviews.map((x) => `${x.area}=${x.verdict}`).join(" ")}; open critical/high=${r.openSevere} refuted=${r.refuted} minor=${r.minor} accepted_open=${r.acceptedOpen}${r.ui === undefined ? "" : `; ui evidence=${r.ui.dir} pages=${r.ui.pages} axe_violations=${r.ui.axeViolations} overflow_pages=${r.ui.overflowPages}`}`,
 							),
+							...(status.dependencyAudit.entries.length === 0
+								? []
+								: [
+										`Dependency audit: ${status.dependencyAudit.entries.at(-1)?.status ?? "none"}; new high/critical=${status.dependencyAudit.blockingNew}; unavailable=${status.dependencyAudit.unavailable}`,
+									]),
 							"Recent events:",
 							...status.recentEvents.map(
 								(e) => `  #${e.seq} ${e.type}${e.taskId ? ` (${e.taskId})` : ""}`,

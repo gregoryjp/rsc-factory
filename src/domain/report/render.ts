@@ -26,6 +26,38 @@ const DELIVERY_LABEL: Record<RunReport["delivery"]["status"], string> = {
 	failed: "fallida",
 };
 
+const AUDIT_STATUS_LABEL: Record<string, string> = {
+	baseline: "línea base registrada",
+	pass: "sin vulnerabilidades altas/críticas nuevas",
+	new_vulnerability: "BLOQUEA: vulnerabilidad alta/crítica nueva",
+	unavailable: "no disponible (no cuenta como aprobada; bloquea la entrega)",
+	skipped: "omitida",
+};
+
+const auditRefs = (refs: readonly { id: string; package: string; severity: string }[]): string =>
+	refs.length === 0
+		? "ninguna"
+		: refs.map((r) => `${r.package} ${r.id} (${r.severity})`).join(", ");
+
+const auditLines = (report: RunReport): string[] =>
+	report.dependencyAudit.entries.length === 0
+		? []
+		: [
+				"## Auditoría de dependencias",
+				"",
+				...report.dependencyAudit.entries.flatMap((entry) => [
+					`- ${entry.phase}: ${AUDIT_STATUS_LABEL[entry.status] ?? entry.status}${entry.reason === null ? "" : ` (${entry.reason})`}.`,
+					...(entry.counts === null || entry.phase === "baseline"
+						? []
+						: [
+								`  - Por severidad: crítica ${entry.counts.critical}, alta ${entry.counts.high}, moderada ${entry.counts.moderate}, baja ${entry.counts.low}, info ${entry.counts.info}.`,
+								`  - Nuevas altas/críticas: ${auditRefs(entry.newSevere)}.`,
+							]),
+					`  - accepted_baseline: ${auditRefs(entry.acceptedBaseline)}.`,
+				]),
+				"",
+			];
+
 const list = (items: readonly string[], empty = "ninguno"): string =>
 	items.length === 0 ? empty : items.join(", ");
 
@@ -131,6 +163,7 @@ export const renderReportMarkdown = (report: RunReport): string =>
 						`- ${c.id}${c.critical ? " (CRÍTICA)" : ""}: ${c.description} (requisitos ${list(c.requirementIds)})`,
 				)),
 		"",
+		...auditLines(report),
 		"## Reintentos y reparaciones",
 		"",
 		`- Reintentos manuales: ${report.retries.total}; reparaciones del builder: ${report.retries.repairs}; reintentos del proveedor: ${report.budget.retries}.`,

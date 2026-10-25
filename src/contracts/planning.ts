@@ -91,6 +91,7 @@ export const RoleSchema = z.enum([
 	"reviewer-code",
 	"reviewer-ux",
 	"reviewer-ui",
+	"reviewer-legal",
 	"review-refuter",
 	"approver",
 ]);
@@ -105,6 +106,7 @@ export const RolesConfigSchema = z.strictObject({
 	"reviewer-code": NonEmpty,
 	"reviewer-ux": NonEmpty,
 	"reviewer-ui": NonEmpty,
+	"reviewer-legal": NonEmpty,
 	"review-refuter": NonEmpty,
 	approver: NonEmpty,
 });
@@ -122,6 +124,7 @@ export const ArtifactKindSchema = z.enum([
 	"bootstrap-staged",
 	"review",
 	"blocked-diff",
+	"audit-baseline",
 	"report",
 	"release-plan",
 ]);
