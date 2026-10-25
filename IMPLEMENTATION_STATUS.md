@@ -507,3 +507,13 @@ Decisión 2026-10-24: Gregory no ejecuta la demo TurnoLocal (estimado USD 30–5
 Comprobación del coordinador (sin LLM): `factory audit` sobre un repo con cambios sin commit y archivos sin seguimiento dejó HEAD, `git status`, hashes de archivos y `.git/index` idénticos; el informe marcó `checks_failed` (`npm ci` sin lockfile) sin maquillarlo.
 
 Pendiente de Gregory: commit inicial del repositorio `rsc_factory` (todo está sin commit).
+
+## P0 de seguridad, legal y diseño (2026-10-25)
+
+Tres flujos paralelos fusionados en `integration-p0`. Verificado: typecheck, lint, 881 pruebas unitarias y 20 de Docker en verde. Sin objetos Docker de fábrica huérfanos; contenedores `kimmbo-prod-*` intactos.
+
+- **A · API (`api`, `apiweb`)**: módulo `auth` (argon2id, tokens opacos hasheados, refresh rotado con detección de reutilización), rate limiting global y estricto en auth, denegación por defecto (`PUBLIC_API_ROUTES`, 404 uniforme en recursos ajenos), CSRF/Origin en cookies, cabeceras, timeouts. Los dos árboles `api/` son idénticos (test). Límite: el almacén de rate limit es en memoria; Redis queda documentado, no implementado. Registro con email repetido devuelve 409 (enumeración mitigada solo por rate limit).
+- **B · Motor**: gate determinista de `npm audit` con baseline (`audit_new_vulnerability`, `audit_unavailable`; reintentable) y revisor `legal` (área nueva en G4: security, code, legal, ux, ui; aplicabilidad determinista). ADR 0016. Pendiente: baseline en `buildBootstrapOnly` y auditoría en cada merge por tarea.
+- **C · Front y móvil**: CSP, páginas legales provisionales con `[PENDIENTE]`, tokens con modo oscuro, WCAG 2.2, componentes de estado, `check` que falla ante incumplimientos; móvil con `expo-secure-store` y validación de deep links. Los textos legales son estructura, no asesoría.
+- **Fixture Docker del builder** actualizado a la composición nueva (ping protegido por defecto) y a la auditoría de entrega.
+- **Pendiente**: los tests Docker usan ids fijos (`factory-run_2-*`) y chocan si corren dos suites a la vez; hacerlos únicos por worktree. P1/P2 del análisis y H7 (segundo proveedor, ver ADR pendiente) sin empezar.

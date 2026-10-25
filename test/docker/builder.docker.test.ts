@@ -27,20 +27,32 @@ import {
 const MINUTES = 60_000;
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
 
-const PING_TEST = `import request from "supertest";
-import { describe, expect, it } from "vitest";
-import { createProductApp } from "../../../composition.js";
-
-const app = createProductApp();
+const PING_TEST = `import { describe, expect, it } from "vitest";
+import { buildProduct } from "../../../composition.js";
 
 describe("ping", () => {
-	it("GET /ping returns the pong envelope", async () => {
-		const response = await request(app).get("/ping");
-		expect(response.status).toBe(200);
-		expect(response.body.data).toEqual({ pong: true });
+	it("GET /api/v1/ping is mounted behind authentication", () => {
+		const route = buildProduct().routes.find(
+			(r) => r.method === "GET" && r.path === "/api/v1/ping",
+		);
+		expect(route?.access).toBe("protected");
 	});
 });
 `;
+
+const COMPOSITION_PATH = join(
+	import.meta.dirname,
+	"../../factory/templates/apiweb/api/src/composition.ts",
+);
+
+const composeWithPing = (): string => {
+	const base = readFileSync(COMPOSITION_PATH, "utf8");
+	const anchor = 'import { createHealthModule } from "./modules/health/index.js";\n';
+	const mounts = "...(overrides.extraProtectedMounts ?? []),";
+	return base
+		.replace(anchor, `${anchor}import { createPingModule } from "./modules/ping/index.js";\n`)
+		.replace(mounts, `{ path: "/ping", router: createPingModule() },\n\t\t\t${mounts}`);
+};
 
 const PING_GREEN = {
 	"api/src/modules/ping/services/ping.service.ts": `export type PingStatus = { pong: true };
@@ -75,23 +87,7 @@ import { createPingService } from "./services/ping.service.js";
 export const createPingModule = (): Router =>
 	createPingRoutes(createPingController(createPingService()));
 `,
-	"api/src/composition.ts": `import { env } from "./config/env.js";
-import { prisma } from "./infrastructure/database.js";
-import { createApp } from "./infrastructure/http/app.js";
-import { logger } from "./infrastructure/logger.js";
-import { createHealthModule } from "./modules/health/index.js";
-import { createPingModule } from "./modules/ping/index.js";
-
-export const createProductApp = () =>
-	createApp({
-		logger,
-		corsOrigins: env.CORS_ORIGINS,
-		mounts: [
-			{ path: "/health", router: createHealthModule({ prisma }) },
-			{ path: "/ping", router: createPingModule() },
-		],
-	});
-`,
+	"api/src/composition.ts": composeWithPing(),
 };
 
 describe.skipIf(!dockerAvailable)(
@@ -197,6 +193,7 @@ describe.skipIf(!dockerAvailable)(
 					deliveryChecks.map((c) => [c.cwd, c.argv.join(" "), c.exitCode, c.isolated]),
 					deliveryChecks.map((c) => log(c.id).slice(-1500)).join("\n"),
 				).toEqual([
+					["delivery-audit", "npm audit --omit=dev --json", 1, true],
 					["delivery-report", "npm ci", 0, true],
 					["delivery-report", "npm run check", 0, true],
 					["delivery-main", "npm ci", 0, true],
