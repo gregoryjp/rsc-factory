@@ -1,11 +1,25 @@
 {
 	"id": "api",
-	"presetIds": ["backend-express-kimmbo"],
-	"render": ["AGENTS.md", "README.md", "docs/STATE.md", "docs/ARCHITECTURE.md", "docs/STANDARDS.md", ".env.example", "api/.env.example"],
+	"presetIds": [
+		"backend-express-kimmbo"
+	],
+	"render": [
+		"AGENTS.md",
+		"README.md",
+		"docs/STATE.md",
+		"docs/ARCHITECTURE.md",
+		"docs/STANDARDS.md",
+		".env.example",
+		"api/.env.example"
+	],
 	"provides": [
 		"npm workspace api/ with install, lint, typecheck and test already configured",
 		"api/: Express app factory, env validation, error handler and response envelopes, logger, Prisma client and an empty schema with migrations setup",
 		"api/src/modules/health with /health/live and /health/ready and its e2e test against PostgreSQL",
+		"api/ security baseline: helmet for JSON APIs, global and stricter auth rate limiting with injectable store and TRUST_PROXY, request timeout, per-route body limits",
+		"api/src/modules/auth: register, login, refresh, logout, me with argon2id, hashed opaque tokens, rotating refresh cookie with reuse detection, User and Session Prisma models and migration",
+		"api/ default-deny authorization: requireAuth, requireRole, assertOwned and a route allowlist enforced at composition",
+		"api/ CSRF protection on cookie endpoints (X-Requested-With header and Origin allowlist)",
 		"api/ module layout routes/controllers/services/repositories/schemas with boundary, layer, raw-sql and comment guard scripts",
 		"api/ test setup with a guarded test database, per-test truncation and supertest"
 	]

@@ -3,6 +3,11 @@ export type ErrorCode =
 	| "INVALID_JSON"
 	| "PAYLOAD_TOO_LARGE"
 	| "NOT_FOUND"
+	| "UNAUTHORIZED"
+	| "FORBIDDEN"
+	| "CONFLICT"
+	| "RATE_LIMITED"
+	| "REQUEST_TIMEOUT"
 	| "SERVICE_UNAVAILABLE"
 	| "INTERNAL_ERROR";
 
@@ -30,3 +35,11 @@ export const notFound = (message = "Resource not found"): AppError =>
 
 export const serviceUnavailable = (message: string): AppError =>
 	new AppError(503, "SERVICE_UNAVAILABLE", message);
+
+export const unauthorized = (message = "Authentication required"): AppError =>
+	new AppError(401, "UNAUTHORIZED", message);
+
+export const forbidden = (message = "Forbidden"): AppError =>
+	new AppError(403, "FORBIDDEN", message);
+
+export const conflict = (message: string): AppError => new AppError(409, "CONFLICT", message);
