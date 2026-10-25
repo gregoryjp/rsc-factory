@@ -23,9 +23,11 @@
 		"check": "npm run typecheck && npm run lint && npm run check:boundaries && npm run check:sql && npm run check:comments && npm run check:layers && npm test"
 	},
 	"dependencies": {
+		"@node-rs/argon2": "2.2.2",
 		"@prisma/client": "6.19.3",
 		"cors": "2.8.6",
 		"express": "5.2.1",
+		"express-rate-limit": "8.7.1",
 		"helmet": "8.3.0",
 		"pino": "10.3.1",
 		"pino-http": "11.0.0",

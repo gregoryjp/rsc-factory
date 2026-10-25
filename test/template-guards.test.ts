@@ -1,5 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseUiRoutes } from "../src/domain/review/ui.js";
@@ -365,5 +372,28 @@ describe("template .gitignore", () => {
 		]) {
 			expect(result[path], path).toBe(false);
 		}
+	});
+});
+
+describe("api template duplication", () => {
+	const files = (root: string, dir = ""): string[] =>
+		readdirSync(join(root, dir), { withFileTypes: true }).flatMap((entry) => {
+			if (entry.name === "node_modules" || entry.name === "dist" || entry.name === ".env.test") {
+				return [];
+			}
+			const relative = join(dir, entry.name);
+			return entry.isDirectory() ? files(root, relative) : [relative];
+		});
+
+	it("keeps api/ of the api and apiweb templates byte-identical", () => {
+		const templates = join(REPO_ROOT, "factory", "templates");
+		const left = join(templates, "api", "api");
+		const right = join(templates, "apiweb", "api");
+		const leftFiles = files(left).sort();
+		expect(files(right).sort()).toEqual(leftFiles);
+		const differing = leftFiles.filter(
+			(path) => !readFileSync(join(left, path)).equals(readFileSync(join(right, path))),
+		);
+		expect(differing).toEqual([]);
 	});
 });
