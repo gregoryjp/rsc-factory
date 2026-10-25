@@ -5,6 +5,7 @@ import type { RunState, TaskState } from "../../contracts/states.js";
 import { type AuditSummary, summarizeAudit } from "../../domain/depaudit/summary.js";
 import { type FallbackSummary, fallbacksOf } from "../../domain/provider/fallback.js";
 import { deliveryStateOf } from "../../domain/report/delivery-state.js";
+import { type SastSummary, summarizeSast } from "../../domain/sast/summary.js";
 import { type Failure, fail, ok, type Result } from "../../shared/result.js";
 import type { BudgetSummary } from "../budget/ports.js";
 import type { AppDeps } from "../deps.js";
@@ -31,6 +32,7 @@ export type RunStatus = {
 		reviews: TaskReviewSummary[];
 	};
 	dependencyAudit: AuditSummary;
+	sastScan: SastSummary;
 	delivery: {
 		target: string | null;
 		status: string;
@@ -169,6 +171,7 @@ export const getRunStatus = (
 				.map((build) => storage.taskMeta.getByTask(build.taskId)?.key ?? build.taskId),
 		},
 		dependencyAudit: summarizeAudit(storage.events.list(run.id, {})),
+		sastScan: summarizeSast(storage.events.list(run.id, {})),
 		taskCounts: storage.tasks.countByState(run.id),
 		budget: storage.budgets.summary(run.id),
 		quotaWait: (() => {

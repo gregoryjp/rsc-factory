@@ -34,12 +34,13 @@ import { gitEnv } from "./exec-env.js";
 
 export const NODE_TEMPLATE = "node-test";
 
-const policyWith = (audit?: string[]) => ({
+const policyWith = (audit?: string[], sast?: string) => ({
 	[NODE_TEMPLATE]: {
 		install: [],
 		test: ["node", "--test"],
 		check: ["node", "--test"],
 		...(audit ? { audit } : {}),
+		...(sast ? { sast } : {}),
 		preview: {
 			install: ["true"],
 			staticDir: "web",
@@ -119,6 +120,7 @@ export type BuildEnvOptions = {
 	hook?: (request: ProviderRequest, index: number) => void;
 	wrapRunner?: (runner: CheckRunnerPort) => CheckRunnerPort;
 	audit?: string[];
+	sast?: string;
 	files?: Record<string, string>;
 	spec?: SpecOutput;
 	template?: {
@@ -281,7 +283,10 @@ export const createBuildEnv = async (options: BuildEnvOptions) => {
 		: {
 				read: (path) =>
 					path === "factory/policies/checks.json"
-						? ok({ content: JSON.stringify(policyWith(options.audit)), sha256: "0".repeat(64) })
+						? ok({
+								content: JSON.stringify(policyWith(options.audit, options.sast)),
+								sha256: "0".repeat(64),
+							})
 						: base.factoryFiles.read(path),
 			};
 	const target = options.template?.target ?? join(makeTempDir(), "product");

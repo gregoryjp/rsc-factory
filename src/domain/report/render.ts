@@ -35,6 +35,35 @@ const AUDIT_STATUS_LABEL: Record<string, string> = {
 	skipped: "omitida",
 };
 
+const SAST_STATUS_LABEL: Record<string, string> = {
+	baseline: "línea base registrada",
+	pass: "sin hallazgos altos nuevos",
+	new_finding: "BLOQUEA: hallazgo alto nuevo",
+	unavailable: "no disponible (no cuenta como aprobado; bloquea la entrega)",
+};
+
+const sastRefs = (refs: readonly { rule: string; file: string; severity: string }[]): string =>
+	refs.length === 0 ? "ninguno" : refs.map((r) => `${r.rule} ${r.file} (${r.severity})`).join(", ");
+
+const sastLines = (report: RunReport): string[] =>
+	report.sastScan.entries.length === 0
+		? []
+		: [
+				"## Análisis estático (SAST)",
+				"",
+				...report.sastScan.entries.flatMap((entry) => [
+					`- ${entry.phase}: ${SAST_STATUS_LABEL[entry.status] ?? entry.status}${entry.reason === null ? "" : ` (${entry.reason})`}.`,
+					...(entry.counts === null || entry.phase === "baseline"
+						? []
+						: [
+								`  - Por severidad: alta ${entry.counts.high}, media ${entry.counts.medium}, baja ${entry.counts.low}.`,
+								`  - Nuevos altos: ${sastRefs(entry.newSevere)}.`,
+							]),
+					`  - accepted_baseline: ${sastRefs(entry.acceptedBaseline)}.`,
+				]),
+				"",
+			];
+
 const auditRefs = (refs: readonly { id: string; package: string; severity: string }[]): string =>
 	refs.length === 0
 		? "ninguna"
@@ -170,6 +199,7 @@ export const renderReportMarkdown = (report: RunReport): string =>
 				)),
 		"",
 		...auditLines(report),
+		...sastLines(report),
 		"## Reintentos y reparaciones",
 		"",
 		`- Reintentos manuales: ${report.retries.total}; reparaciones del builder: ${report.retries.repairs}; reintentos del proveedor: ${report.budget.retries}.`,

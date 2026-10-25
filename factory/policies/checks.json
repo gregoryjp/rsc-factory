@@ -4,6 +4,7 @@
 		"test": ["npm", "run", "test", "--workspaces", "--if-present"],
 		"check": ["npm", "run", "check"],
 		"audit": ["npm", "audit", "--omit=dev", "--json"],
+		"sast": "factory/sast/scan.mjs",
 		"preview": {
 			"install": ["npm", "ci"],
 			"build": ["npm", "run", "build", "-w", "web"],
@@ -23,13 +24,15 @@
 		"install": ["npm", "ci"],
 		"test": ["npm", "run", "test", "--workspaces", "--if-present"],
 		"check": ["npm", "run", "check"],
-		"audit": ["npm", "audit", "--omit=dev", "--json"]
+		"audit": ["npm", "audit", "--omit=dev", "--json"],
+		"sast": "factory/sast/scan.mjs"
 	},
 	"landing": {
 		"install": ["npm", "ci"],
 		"test": ["npm", "test"],
 		"check": ["npm", "run", "check"],
 		"audit": ["npm", "audit", "--omit=dev", "--json"],
+		"sast": "factory/sast/scan.mjs",
 		"preview": {
 			"install": ["npm", "ci"],
 			"staticDir": ".",
@@ -41,6 +44,7 @@
 		"test": ["npm", "test"],
 		"check": ["npm", "run", "check"],
 		"audit": ["npm", "audit", "--omit=dev", "--json"],
+		"sast": "factory/sast/scan.mjs",
 		"preview": {
 			"install": ["npm", "ci"],
 			"build": ["npm", "run", "build:web"],

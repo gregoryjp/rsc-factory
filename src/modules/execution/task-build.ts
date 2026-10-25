@@ -36,6 +36,7 @@ import type { BuildPhase, TaskBuild } from "./ports.js";
 import { type CheckDeps, runAndRecordChecks } from "./record-check.js";
 import { runReviews } from "./review-task.js";
 import { commitGuarded } from "./safe-commit.js";
+import { runSastGate } from "./sast-gate.js";
 import { HALT_BY_ERROR_CODE, type HaltReason, type StopInfo, stopInfoOf } from "./stop.js";
 
 export const INTEGRATION_BRANCH = "factory/integration";
@@ -504,6 +505,22 @@ const greenCommittedHandler: Handler = async (ctx, ref, build) => {
 			return {
 				blocked: "audit_new_vulnerability",
 				detail: audited.value.detail,
+				patch: { lastCheckId: check.id },
+			};
+		}
+		const scanned = await runSastGate(ctx.deps, {
+			runId: ctx.runId,
+			taskId: ref.task.id,
+			repoDir: worktreeOf(ctx, ref.key),
+			cwdLabel: "worktree-sast",
+			phase: "task",
+			sastScript: ctx.policy.sast,
+		});
+		if (!scanned.ok) return failed("check_runner_failed", scanned.error.message);
+		if (scanned.value.kind === "blocked") {
+			return {
+				blocked: "sast_new_finding",
+				detail: scanned.value.detail,
 				patch: { lastCheckId: check.id },
 			};
 		}

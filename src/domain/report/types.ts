@@ -1,5 +1,6 @@
 import type { AuditSummary } from "../depaudit/summary.js";
 import type { FallbackSummary } from "../provider/fallback.js";
+import type { SastSummary } from "../sast/summary.js";
 
 export type RequirementStatus = "entregado" | "no_entregado" | "sin_evidencia";
 
@@ -119,6 +120,7 @@ export type RunReport = {
 	}[];
 	retries: { total: number; repairs: number };
 	dependencyAudit: AuditSummary;
+	sastScan: SastSummary;
 	budget: {
 		budgetUsd: number;
 		chargedReportedUsd: number;

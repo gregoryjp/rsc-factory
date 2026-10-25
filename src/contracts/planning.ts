@@ -162,6 +162,7 @@ export const ArtifactKindSchema = z.enum([
 	"review",
 	"blocked-diff",
 	"audit-baseline",
+	"sast-baseline",
 	"report",
 	"release-plan",
 ]);

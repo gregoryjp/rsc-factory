@@ -8,6 +8,7 @@ import { assertDoneEvidence, completedFinalCheck, stepsFor } from "../execution/
 import { runDependencyAudit } from "../execution/dependency-audit.js";
 import { runAndRecordChecks } from "../execution/record-check.js";
 import { commitGuarded } from "../execution/safe-commit.js";
+import { runSastGate } from "../execution/sast-gate.js";
 import { INTEGRATION_BRANCH } from "../execution/task-build.js";
 import { transitionRun } from "../runs/transition-run.js";
 import { buildRunReport, DELIVERY_CHECK_PREFIX, FINAL_CHECK_CWD } from "./build-report.js";
@@ -95,6 +96,7 @@ type Locked = {
 	policyArgv: readonly string[];
 	steps: ReturnType<typeof stepsFor>;
 	auditArgv: readonly string[] | undefined;
+	sastScript: string | undefined;
 };
 
 const writeReport = (
@@ -226,6 +228,24 @@ const deliverLocked = async (
 		}
 		if (audited.value.kind === "blocked") {
 			return fail("audit_new_vulnerability", audited.value.detail);
+		}
+		const scanned = await runSastGate(deps, {
+			runId,
+			taskId: null,
+			repoDir: target,
+			cwdLabel: "delivery-sast",
+			phase: "delivery",
+			sastScript: locked.sastScript,
+		});
+		if (!scanned.ok) return scanned;
+		if (scanned.value.kind === "unavailable") {
+			return fail(
+				"sast_unavailable",
+				`The SAST scan could not run (${scanned.value.reason}); delivery is blocked, retry later`,
+			);
+		}
+		if (scanned.value.kind === "blocked") {
+			return fail("sast_new_finding", scanned.value.detail);
 		}
 	}
 	let reportHead = head0.value;
@@ -371,6 +391,7 @@ export const deliverRun = async (
 		policyArgv: last.argv,
 		steps,
 		auditArgv: policy.value.audit,
+		sastScript: policy.value.sast,
 	};
 	const outcome = await deps.git.withMergeLock<DeliverySummary, DeliverFailure>(run.id, () =>
 		deliverLocked(deps, run.id, locked),
