@@ -12,7 +12,8 @@
 		"lint": "biome check .",
 		"format": "biome check --write .",
 		"test": "vitest run",
-		"check": "npm run typecheck && npm run lint && npm test && npm run build"
+		"check:static": "node scripts/check-static.mjs",
+		"check": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:static"
 	},
 	"dependencies": {
 		"react": "19.3.1",

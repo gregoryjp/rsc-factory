@@ -1,13 +1,16 @@
 {
 	"id": "mobile",
-	"presetIds": ["mobile-expo"],
+	"presetIds": [
+		"mobile-expo"
+	],
 	"render": [
 		"AGENTS.md",
 		"README.md",
 		"app.json",
 		"docs/STATE.md",
 		"docs/ARCHITECTURE.md",
-		"src/screens/HomeScreen.tsx"
+		"src/screens/HomeScreen.tsx",
+		"src/navigation/deepLinkPolicy.ts"
 	],
 	"provides": [
 		"Expo SDK 58 app (React Native 0.88, React 19) with App.tsx rendering src/screens/HomeScreen.tsx: a title and an accessible primary button",
@@ -15,6 +18,10 @@
 		"src/domain with one pure function and its vitest test (npm test runs vitest run; keep tests free of react-native imports)",
 		"npm run check runs typecheck (tsc --noEmit, strict), lint (Biome) and the tests",
 		"npm run build:web exports the web build with React Native Web to dist/ for the browser review",
-		"ui-routes.json at the root with the default [\"/\"]: a JSON array of absolute route paths captured by the browser (keep this exact format)"
+		"ui-routes.json at the root with the default [\"/\"]: a JSON array of absolute route paths captured by the browser (keep this exact format)",
+		"src/storage/secureToken.ts: pure createTokenStore(backend) over a SecureBackend interface; src/storage/expoSecureBackend.ts wires expo-secure-store 58.0.2 (tokens never go to AsyncStorage)",
+		"src/navigation/validateDeepLink.ts: pure allowlist validator (schemes, hosts, paths; rejects javascript:, traversal) with tests; policy in deepLinkPolicy.ts, scheme in app.json",
+		"src/theme/tokens.ts light and dark palettes with selectColors(scheme), useColors() hook (useColorScheme), contrast test >= 4.5:1 in both themes; userInterfaceStyle automatic",
+		"src/security/sourceRules.test.ts failing when AsyncStorage is imported in a file with token-like keys or an EXPO_PUBLIC_ variable looks like a secret"
 	]
 }
