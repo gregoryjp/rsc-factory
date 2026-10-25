@@ -17,6 +17,7 @@ import {
 } from "../../src/infrastructure/providers/codex-docker.js";
 import type { ProviderRequest } from "../../src/infrastructure/providers/provider-port.js";
 import { ok } from "../../src/shared/result.js";
+import { dockerIdSalt } from "../helpers/id-salt.js";
 import {
 	baseEnv,
 	containerUser,
@@ -26,7 +27,7 @@ import {
 	SKIP_REASON,
 } from "./docker-helpers.js";
 
-const RUN_ID = "run_codexiso";
+const RUN_ID = `run_codexiso_${dockerIdSalt()}`;
 const vendor = findCodexVendorDir("codex", process.env.PATH);
 const REAL_CALL = process.env.FACTORY_REAL_CODEX_DOCKER === "1";
 const FORBIDDEN_ROOTS = [join(homedir(), ".ssh"), join(homedir(), ".codex")];

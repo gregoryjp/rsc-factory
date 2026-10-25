@@ -32,6 +32,7 @@ export const CheckPolicyEntrySchema = z.strictObject({
 	test: Argv,
 	check: Argv,
 	audit: Argv.optional(),
+	sast: RelativePath.optional(),
 	preview: PreviewPolicySchema.optional(),
 });
 export type CheckPolicyEntry = z.infer<typeof CheckPolicyEntrySchema>;

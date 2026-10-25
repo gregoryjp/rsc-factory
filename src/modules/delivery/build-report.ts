@@ -16,6 +16,7 @@ import type {
 	ReportUi,
 	RunReport,
 } from "../../domain/report/types.js";
+import { summarizeSast } from "../../domain/sast/summary.js";
 import { type Failure, fail, ok, type Result } from "../../shared/result.js";
 import type { AppDeps } from "../deps.js";
 import type { StoredFinding, StoredReview } from "../execution/ports.js";
@@ -421,6 +422,7 @@ export const buildRunReport = (
 			requirementIds: c.requirementIds,
 		})),
 		dependencyAudit: summarizeAudit(events),
+		sastScan: summarizeSast(events),
 		retries: {
 			total: tasks.reduce((sum, task) => sum + task.retries, 0),
 			repairs: tasks.reduce((sum, task) => sum + task.repairs, 0),

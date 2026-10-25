@@ -14,6 +14,7 @@ export default defineConfig({
 			{
 				test: {
 					name: "docker",
+					setupFiles: ["test/docker/setup-id-salt.ts"],
 					include: ["test/docker/**/*.test.ts"],
 					testTimeout: 900_000,
 					hookTimeout: 120_000,

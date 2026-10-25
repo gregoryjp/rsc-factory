@@ -245,6 +245,11 @@ export const runCli = async (
 								: [
 										`Dependency audit: ${status.dependencyAudit.entries.at(-1)?.status ?? "none"}; new high/critical=${status.dependencyAudit.blockingNew}; unavailable=${status.dependencyAudit.unavailable}`,
 									]),
+							...(status.sastScan.entries.length === 0
+								? []
+								: [
+										`SAST: ${status.sastScan.entries.at(-1)?.status ?? "none"}; new high=${status.sastScan.blockingNew}; unavailable=${status.sastScan.unavailable}`,
+									]),
 							"Recent events:",
 							...status.recentEvents.map(
 								(e) => `  #${e.seq} ${e.type}${e.taskId ? ` (${e.taskId})` : ""}`,

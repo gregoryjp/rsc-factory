@@ -23,6 +23,7 @@ import {
 import { type AuditOutcome, recordAuditBaseline, runDependencyAudit } from "./dependency-audit.js";
 import { type CheckDeps, runAndRecordChecks } from "./record-check.js";
 import { DEFAULT_REVIEW_DIFF_MAX_BYTES } from "./review-task.js";
+import { recordSastBaseline, runSastGate, type SastOutcome } from "./sast-gate.js";
 import type { StopInfo } from "./stop.js";
 import {
 	INTEGRATION_BRANCH,
@@ -296,8 +297,25 @@ const finalizeRun = async (
 		: ok<AuditOutcome>({ kind: "pass" });
 	if (!audited.ok) return audited;
 	const auditBlocked = audited.value.kind === "blocked";
-	const passed = checkPassed && !auditBlocked;
-	const failure = checkPassed ? "audit_new_vulnerability" : "final_check_failed";
+	const scanned =
+		checkPassed && !auditBlocked
+			? await runSastGate(deps, {
+					runId: ctx.runId,
+					taskId: null,
+					repoDir: ctx.target,
+					cwdLabel: "integration-sast",
+					phase: "integration",
+					sastScript: ctx.policy.sast,
+				})
+			: ok<SastOutcome>({ kind: "pass" });
+	if (!scanned.ok) return scanned;
+	const sastBlocked = scanned.value.kind === "blocked";
+	const passed = checkPassed && !auditBlocked && !sastBlocked;
+	const failure = !checkPassed
+		? "final_check_failed"
+		: auditBlocked
+			? "audit_new_vulnerability"
+			: "sast_new_finding";
 	const moved = transitionRun(deps, {
 		runId: ctx.runId,
 		to: passed ? "READY_FOR_RELEASE" : "BLOCKED",
@@ -343,10 +361,16 @@ const ensureAuditBaseline = async (
 	const head = deps.git.headSha(ctx.target);
 	if (!head.ok) return head;
 	if (bootstrapped?.payload.commitSha !== head.value) return ok(undefined);
-	return recordAuditBaseline(deps, {
+	const audited = await recordAuditBaseline(deps, {
 		runId: ctx.runId,
 		repoDir: ctx.target,
 		auditArgv: ctx.policy.audit,
+	});
+	if (!audited.ok) return audited;
+	return recordSastBaseline(deps, {
+		runId: ctx.runId,
+		repoDir: ctx.target,
+		sastScript: ctx.policy.sast,
 	});
 };
 

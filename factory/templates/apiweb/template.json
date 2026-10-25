@@ -9,6 +9,7 @@
 		"README.md",
 		"docs/STATE.md",
 		"docs/ARCHITECTURE.md",
+		"docs/DESIGN-SYSTEM.md",
 		"docs/STANDARDS.md",
 		".env.example",
 		"api/.env.example",
@@ -34,6 +35,8 @@
 		"web/public/tokens.css (color roles with automatic dark mode, spacing, fluid type, radii) and web/public/base.css (focus-visible, 24px targets, reduced motion, skip link) linked from index.html",
 		"web/public/legal/ provisional Spanish legal pages with [PENDIENTE] markers, linked from the App footer",
 		"web/src/components/{Loading,EmptyState,ErrorState}.tsx with accessible roles, CSS Modules and tests",
-		"web/scripts/check-static.mjs (npm run check:static after build): CSP, no inline script/style, legal pages linked, skip link, AA token contrast, [PENDIENTE] warning"
+		"web/scripts/check-static.mjs (npm run check:static after build): CSP, no inline script/style, legal pages linked, skip link, AA token contrast, [PENDIENTE] warning",
+		"docs/DESIGN-SYSTEM.md (tokens, spacing and type scale, states) and web/src/i18n/{messages,t}.ts: a typed message table with t('key'), no i18n library",
+		"check-static.mjs also enforces a gzip budget on built JS/CSS, image size, form control labels in components, heading order, ARIA misuse, focus outlines and reduced-motion neutralization"
 	]
 }

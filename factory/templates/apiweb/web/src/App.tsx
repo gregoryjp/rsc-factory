@@ -1,27 +1,29 @@
 import styles from "./App.module.css";
 import { PRODUCT_NAME } from "./config/product";
+import type { MessageKey } from "./i18n/messages";
+import { t } from "./i18n/t";
 
-const LEGAL_LINKS = [
-	{ href: "/legal/aviso-legal.html", label: "Aviso legal" },
-	{ href: "/legal/politica-privacidad.html", label: "Política de privacidad" },
-	{ href: "/legal/politica-cookies.html", label: "Política de cookies" },
-] as const;
+const LEGAL_LINKS: readonly { href: string; label: MessageKey }[] = [
+	{ href: "/legal/aviso-legal.html", label: "legal.notice" },
+	{ href: "/legal/politica-privacidad.html", label: "legal.privacy" },
+	{ href: "/legal/politica-cookies.html", label: "legal.cookies" },
+];
 
 export function App() {
 	return (
 		<>
 			<a className="skip-link" href="#main">
-				Saltar al contenido
+				{t("app.skip")}
 			</a>
 			<main id="main" className={styles.app}>
 				<h1 className={styles.title}>{PRODUCT_NAME}</h1>
-				<p className={styles.subtitle}>Base lista para construir.</p>
+				<p className={styles.subtitle}>{t("app.subtitle")}</p>
 			</main>
 			<footer className="site-footer">
-				<nav className="site-footer__nav" aria-label="Información legal">
+				<nav className="site-footer__nav" aria-label={t("legal.nav")}>
 					{LEGAL_LINKS.map((link) => (
 						<a key={link.href} href={link.href}>
-							{link.label}
+							{t(link.label)}
 						</a>
 					))}
 				</nav>

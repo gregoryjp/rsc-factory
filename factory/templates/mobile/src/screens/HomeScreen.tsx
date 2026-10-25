@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { formatGreeting } from "../domain/greeting";
+import { t } from "../i18n/t";
 import { fontSize, minTouchTarget, radius, spacing } from "../theme/tokens";
 import { useColors } from "../theme/useColors";
 
@@ -40,11 +41,11 @@ export function HomeScreen() {
 			{greeting === "" ? null : <Text style={styles.body}>{greeting}</Text>}
 			<Pressable
 				accessibilityRole="button"
-				accessibilityLabel="Comenzar"
-				onPress={() => setGreeting(formatGreeting("equipo"))}
+				accessibilityLabel={t("home.start")}
+				onPress={() => setGreeting(formatGreeting(t("home.greetingTarget")))}
 				style={styles.button}
 			>
-				<Text style={styles.buttonText}>Comenzar</Text>
+				<Text style={styles.buttonText}>{t("home.start")}</Text>
 			</Pressable>
 		</View>
 	);

@@ -256,7 +256,7 @@ describe("static-landing check script", () => {
 	const LEGAL = ["aviso-legal", "politica-privacidad", "politica-cookies"];
 	const links = LEGAL.map((name) => `<a href="legal/${name}.html">${name}</a>`).join("");
 	const doc = (head: string, body = "") =>
-		`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width"><title>T</title><meta http-equiv="Content-Security-Policy" content="${CSP}"><link rel="stylesheet" href="tokens.css">${head}</head><body><a class="skip-link" href="#main">Saltar</a><main id="main"></main><footer>${links}${body}</footer></body></html>`;
+		`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width"><title>T</title><meta http-equiv="Content-Security-Policy" content="${CSP}"><link rel="stylesheet" href="tokens.css">${head}</head><body><a class="skip-link" href="#main">Saltar</a><main id="main"><h1>T</h1></main><footer>${links}${body}</footer></body></html>`;
 	const TOKENS = readFileSync(join(STATIC, "tokens.css"), "utf8");
 	const STYLES = readFileSync(join(STATIC, "styles.css"), "utf8");
 	const base = (overrides: Record<string, string> = {}): Record<string, string> => ({

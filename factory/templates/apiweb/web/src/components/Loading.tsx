@@ -1,10 +1,11 @@
+import { t } from "../i18n/t";
 import styles from "./States.module.css";
 
 interface LoadingProps {
 	label?: string;
 }
 
-export function Loading({ label = "Cargando…" }: LoadingProps) {
+export function Loading({ label = t("state.loading") }: LoadingProps) {
 	return (
 		<div className={styles.state} role="status" aria-live="polite">
 			<span className={styles.spinner} aria-hidden="true" />
