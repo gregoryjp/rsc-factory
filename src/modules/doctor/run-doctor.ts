@@ -23,6 +23,7 @@ export type DoctorDeps = {
 	expectedCodexVersion: string;
 	codexBin?: string;
 	codexHostUnsafe?: boolean;
+	codexLoggedIn?: boolean;
 	roles: Result<RolesConfig, Failure<string>>;
 	codexModels: Result<string[], Failure<string>>;
 	provider: ProviderConfig;
@@ -151,6 +152,63 @@ const checkRoleIndependence = (deps: DoctorDeps): DoctorCheck => {
 		: check("role-independence", "warn", warnings.join("; "));
 };
 
+type FallbackUse = { role: string; model: string };
+
+const fallbacksBy = (deps: DoctorDeps, provider: string): FallbackUse[] =>
+	deps.roles.ok
+		? Object.entries(deps.roles.value).flatMap(([role, config]) =>
+				config.fallback?.provider === provider ? [{ role, model: config.fallback.model }] : [],
+			)
+		: [];
+
+const namesOf = (uses: readonly FallbackUse[]): string => uses.map((use) => use.role).join(", ");
+
+const codexFallbackProblems = async (deps: DoctorDeps, uses: FallbackUse[]): Promise<string[]> => {
+	if (uses.length === 0) return [];
+	const found = await probe(deps, deps.codexBin ?? "codex", ["--version"]);
+	const docker = await deps.exec(
+		"docker",
+		["info", "--format", "{{.OperatingSystem}}"],
+		PROBE_TIMEOUT_MS,
+	);
+	const known = deps.codexModels.ok ? deps.codexModels.value : undefined;
+	const missing = known === undefined ? [] : uses.filter((use) => !known.includes(use.model));
+	return [
+		...(found.found ? [] : [`codex binary unavailable (${found.reason})`]),
+		...(missing.length === 0
+			? []
+			: [
+					`codex fallback models not in models_cache.json: ${[...new Set(missing.map((u) => u.model))].join(", ")}`,
+				]),
+		...(deps.codexLoggedIn === false ? ["codex is not logged in (no auth.json)"] : []),
+		...(docker.ok ? [] : ["docker unavailable (codex fallback requires the container)"]),
+	].map((problem) => `${problem} [roles: ${namesOf(uses)}]`);
+};
+
+const claudeFallbackProblems = async (deps: DoctorDeps, uses: FallbackUse[]): Promise<string[]> => {
+	if (uses.length === 0) return [];
+	const found = await probe(deps, "claude", ["--version"]);
+	return found.found
+		? []
+		: [`claude binary unavailable (${found.reason}) [roles: ${namesOf(uses)}]`];
+};
+
+const checkProviderFallback = async (deps: DoctorDeps): Promise<DoctorCheck> => {
+	if (
+		!deps.roles.ok ||
+		fallbacksBy(deps, "codex").length + fallbacksBy(deps, "claude").length === 0
+	) {
+		return check("provider-fallback", "ok", "no role declares a fallback");
+	}
+	const problems = [
+		...(await codexFallbackProblems(deps, fallbacksBy(deps, "codex"))),
+		...(await claudeFallbackProblems(deps, fallbacksBy(deps, "claude"))),
+	];
+	return problems.length === 0
+		? check("provider-fallback", "ok", "every configured fallback provider looks usable")
+		: check("provider-fallback", "warn", problems.join("; "));
+};
+
 const checkOptional = async (
 	deps: DoctorDeps,
 	name: string,
@@ -245,6 +303,7 @@ export const runDoctor = async (deps: DoctorDeps): Promise<DoctorReport> => {
 		await checkCodex(deps),
 		checkCodexModels(deps),
 		await checkCodexIsolation(deps),
+		await checkProviderFallback(deps),
 		checkRoleIndependence(deps),
 		checkProvider(deps),
 		await checkOptional(deps, "docker", "docker", "Docker is needed for isolation from H3"),

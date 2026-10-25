@@ -1,3 +1,4 @@
+import { describeFallback } from "../provider/fallback.js";
 import type { CheckRef, ReportTask, ReportUi, RequirementStatus, RunReport } from "./types.js";
 
 const STATUS_LABEL: Record<RequirementStatus, string> = {
@@ -119,6 +120,11 @@ export const renderReportMarkdown = (report: RunReport): string =>
 		"",
 		`- Proveedor: ${PROVIDER_LABEL[report.provider.mode]}.`,
 		`- Proveedor por fase: planificación ${list(report.provider.phases.planning, "sin llamadas")}; construcción ${list(report.provider.phases.build, "sin llamadas")}; revisión ${list(report.provider.phases.review, "sin llamadas")}.`,
+		...(report.provider.fallbacks.length === 0
+			? []
+			: [
+					`- Fallback de proveedor: ${report.provider.fallbacks.map(describeFallback).join("; ")}.`,
+				]),
 		`- Runner de checks: ${RUNNER_LABEL[report.runner.isolation]} (${report.runner.isolated} aislados, ${report.runner.notIsolated} sin aislamiento).`,
 		"- Evidencia omitida o no disponible: ver «Limitaciones».",
 		"",

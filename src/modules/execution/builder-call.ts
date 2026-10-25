@@ -49,6 +49,7 @@ export const callBuilder = async (
 			promptFile: assets.value.promptFile,
 			promptHash: assets.value.promptHash,
 			eventExtras: { phase: input.kind },
+			...(assets.value.fallback === undefined ? {} : { fallback: assets.value.fallback }),
 			request: {
 				role: "builder",
 				prompt: input.prompt,

@@ -3,6 +3,7 @@ import type { Run } from "../../contracts/entities.js";
 import type { RunEvent } from "../../contracts/events.js";
 import type { RunState, TaskState } from "../../contracts/states.js";
 import { type AuditSummary, summarizeAudit } from "../../domain/depaudit/summary.js";
+import { type FallbackSummary, fallbacksOf } from "../../domain/provider/fallback.js";
 import { deliveryStateOf } from "../../domain/report/delivery-state.js";
 import { type Failure, fail, ok, type Result } from "../../shared/result.js";
 import type { BudgetSummary } from "../budget/ports.js";
@@ -40,6 +41,7 @@ export type RunStatus = {
 	taskCounts: Record<TaskState, number>;
 	budget: BudgetSummary;
 	quotaWait: { waitUntil: number | null } | null;
+	fallbacks: FallbackSummary[];
 	recentEvents: RunEvent[];
 	nextStep: string;
 };
@@ -173,6 +175,7 @@ export const getRunStatus = (
 			const block = currentBlock(storage, run.id);
 			return block?.cause === "quota_wait" ? { waitUntil: block.waitUntil } : null;
 		})(),
+		fallbacks: fallbacksOf(storage.events.list(run.id, {})),
 		recentEvents: storage.events.list(run.id, { lastN: input.eventLimit }),
 		nextStep:
 			run.state === "BLOCKED"

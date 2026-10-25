@@ -210,11 +210,13 @@ type Launched =
 	| { kind: "completed"; done: Completed }
 	| { kind: "docker_unavailable"; reason: string };
 
-const requiresDocker = (reason: string) =>
+const requiresDocker = (reason: string, writable: boolean) =>
 	failure(
 		"provider_error",
 		false,
-		`codex_requires_docker: ${reason}; start Docker or set FACTORY_CODEX_HOST_UNSAFE=1 to run Codex on the host without isolation`,
+		writable
+			? `codex_requires_docker: ${reason}; a writable codex call (builder) never runs on the host, start Docker`
+			: `codex_requires_docker: ${reason}; start Docker or set FACTORY_CODEX_HOST_UNSAFE=1 to run Codex on the host without isolation`,
 	);
 
 const runInContainer = async (
@@ -345,8 +347,12 @@ export const createCodexCliProvider = (config: {
 					)
 				: ok({ kind: "docker_unavailable", reason: isolation.error });
 			if (!launched.ok) return launched;
-			if (launched.value.kind === "docker_unavailable" && config.allowHostUnsafe !== true) {
-				return requiresDocker(launched.value.reason);
+			const writable = request.permissionMode === "acceptEdits";
+			if (
+				launched.value.kind === "docker_unavailable" &&
+				(config.allowHostUnsafe !== true || writable)
+			) {
+				return requiresDocker(launched.value.reason, writable);
 			}
 			const done = launched.value.kind === "completed" ? launched.value.done : await runOnHost();
 			writeBackRotatedAuth(homeAuth, config.authFile, originalAuth);

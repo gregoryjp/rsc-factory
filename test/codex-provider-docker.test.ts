@@ -180,4 +180,14 @@ describe("CodexCliProvider in a container", () => {
 		const result = await provider.invoke(request(makeTempDir()), OkSchema);
 		expect(!result.ok && result.error.message).toContain("Could not run provider");
 	});
+
+	it("never runs a writable (builder) call on the host, even with the unsafe opt-in", async () => {
+		const { provider } = setup("no_daemon", { allowHostUnsafe: true });
+		const result = await provider.invoke(
+			request(makeTempDir(), { permissionMode: "acceptEdits", role: "builder" }),
+			OkSchema,
+		);
+		expect(!result.ok && result.error.message).toContain("codex_requires_docker");
+		expect(!result.ok && result.error.message).not.toContain("Could not run provider");
+	});
 });

@@ -1,8 +1,10 @@
-import { resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { EXPECTED_CLAUDE_VERSION, EXPECTED_CODEX_VERSION } from "../config/compatibility.js";
 import type { Config } from "../config/env.js";
 import { DeliveryTargetSchema } from "../contracts/states.js";
+import { describeFallback } from "../domain/provider/fallback.js";
 import { renderReportJson, renderReportMarkdown } from "../domain/report/render.js";
 import { readCodexModelSlugs } from "../infrastructure/fs/codex-models.js";
 import { createFsFactoryFiles } from "../infrastructure/fs/factory-files.js";
@@ -120,6 +122,7 @@ export const runCli = async (
 				expectedCodexVersion: EXPECTED_CODEX_VERSION,
 				codexBin: config.codexBin,
 				codexHostUnsafe: config.codexHostUnsafe,
+				codexLoggedIn: existsSync(join(config.codexHome, "auth.json")),
 				roles: loadRolesConfig(createFsFactoryFiles({ repoRoot: config.repoRoot })),
 				codexModels: readCodexModelSlugs(config.codexHome),
 				provider: config.provider,
@@ -228,6 +231,7 @@ export const runCli = async (
 								: [
 										`Quota wait: ${status.quotaWait.waitUntil === null ? "reset time unknown" : `until ${new Date(status.quotaWait.waitUntil).toISOString()}`}`,
 									]),
+							...status.fallbacks.map((entry) => `Provider fallback: ${describeFallback(entry)}`),
 							...status.planning.blockedTasks.map(
 								(t) =>
 									`  blocked ${t.key}: ${t.reason}${t.blockedDiff === undefined ? "" : ` (diff: ${t.blockedDiff})`}`,

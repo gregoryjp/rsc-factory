@@ -103,15 +103,34 @@ export type ProviderName = z.infer<typeof ProviderNameSchema>;
 export const EffortSchema = z.enum(["low", "medium", "high", "xhigh"]);
 export type Effort = z.infer<typeof EffortSchema>;
 
-export const RoleConfigSchema = z
+const effortOnlyForCodex = (value: { provider: string; effort?: string | undefined }): boolean =>
+	value.effort === undefined || value.provider === "codex";
+
+const EFFORT_ISSUE = {
+	message: "effort is only supported for the codex provider",
+	path: ["effort"],
+};
+
+export const FallbackConfigSchema = z
 	.strictObject({
 		provider: ProviderNameSchema,
 		model: NonEmpty,
 		effort: EffortSchema.optional(),
 	})
-	.refine((value) => value.effort === undefined || value.provider === "codex", {
-		message: "effort is only supported for the codex provider",
-		path: ["effort"],
+	.refine(effortOnlyForCodex, EFFORT_ISSUE);
+export type FallbackConfig = z.infer<typeof FallbackConfigSchema>;
+
+export const RoleConfigSchema = z
+	.strictObject({
+		provider: ProviderNameSchema,
+		model: NonEmpty,
+		effort: EffortSchema.optional(),
+		fallback: FallbackConfigSchema.optional(),
+	})
+	.refine(effortOnlyForCodex, EFFORT_ISSUE)
+	.refine((value) => value.fallback === undefined || value.fallback.provider !== value.provider, {
+		message: "the fallback provider must differ from the primary provider",
+		path: ["fallback", "provider"],
 	});
 export type RoleConfig = z.infer<typeof RoleConfigSchema>;
 

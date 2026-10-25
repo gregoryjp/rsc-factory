@@ -1,4 +1,5 @@
 import type { AuditSummary } from "../depaudit/summary.js";
+import type { FallbackSummary } from "../provider/fallback.js";
 
 export type RequirementStatus = "entregado" | "no_entregado" | "sin_evidencia";
 
@@ -94,6 +95,7 @@ export type RunReport = {
 	provider: {
 		mode: "fake" | "real" | "none";
 		phases: { planning: string[]; build: string[]; review: string[] };
+		fallbacks: FallbackSummary[];
 	};
 	runner: {
 		isolation: "isolated" | "host" | "mixed" | "none";

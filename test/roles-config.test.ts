@@ -15,7 +15,7 @@ describe("roles config", () => {
 	it("ships the per-role provider and model defaults", () => {
 		const roles = shipped();
 		for (const role of ["spec-writer", "architect", "planner", "approver"] as const) {
-			expect(roles[role]).toEqual({ provider: "claude", model: "opus" });
+			expect(roles[role]).toMatchObject({ provider: "claude", model: "opus" });
 		}
 		for (const role of [
 			"builder",
@@ -24,10 +24,14 @@ describe("roles config", () => {
 			"reviewer-legal",
 			"review-refuter",
 		] as const) {
-			expect(roles[role]).toEqual({ provider: "claude", model: "sonnet" });
+			expect(roles[role]).toMatchObject({ provider: "claude", model: "sonnet" });
 		}
 		for (const role of ["reviewer-ux", "reviewer-ui"] as const) {
-			expect(roles[role]).toEqual({ provider: "codex", model: "gpt-6-astra", effort: "medium" });
+			expect(roles[role]).toMatchObject({
+				provider: "codex",
+				model: "gpt-6-astra",
+				effort: "medium",
+			});
 		}
 	});
 

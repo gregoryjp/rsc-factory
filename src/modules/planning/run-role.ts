@@ -1,5 +1,5 @@
 import { toJSONSchema, type z } from "zod";
-import type { Effort, ProviderName, Role } from "../../contracts/planning.js";
+import type { Effort, FallbackConfig, ProviderName, Role } from "../../contracts/planning.js";
 import type { GateFailure } from "../../domain/planning/gates.js";
 import type {
 	ProviderFailure,
@@ -25,6 +25,7 @@ export type RoleAssets = {
 	provider: ProviderName;
 	model: string;
 	effort?: Effort;
+	fallback?: FallbackConfig;
 };
 
 export const loadRoleAssets = (
@@ -46,6 +47,7 @@ export const loadRoleAssets = (
 		provider: roles.value[role].provider,
 		model: roles.value[role].model,
 		...(roles.value[role].effort === undefined ? {} : { effort: roles.value[role].effort }),
+		...(roles.value[role].fallback === undefined ? {} : { fallback: roles.value[role].fallback }),
 	});
 };
 
@@ -133,6 +135,7 @@ export const callRole = async <Raw, Value>(
 				model: assets.value.model,
 				promptFile: assets.value.promptFile,
 				promptHash: assets.value.promptHash,
+				...(assets.value.fallback === undefined ? {} : { fallback: assets.value.fallback }),
 				request: {
 					role: input.role,
 					prompt: repair ? repairPrompt(input.prompt, feedback) : input.prompt,

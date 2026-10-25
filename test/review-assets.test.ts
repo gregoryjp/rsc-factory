@@ -149,7 +149,7 @@ describe("legal role configuration", () => {
 		const budget: { maxCallUsd: Record<string, number> } = JSON.parse(
 			readFileSync(join(REPO_ROOT, "factory", "config", "budget.json"), "utf8"),
 		);
-		expect(roles["reviewer-legal"]).toEqual({ provider: "claude", model: "sonnet" });
+		expect(roles["reviewer-legal"]).toMatchObject({ provider: "claude", model: "sonnet" });
 		expect(budget.maxCallUsd["reviewer-legal"]).toBe(0.5);
 	});
 });

@@ -4,6 +4,7 @@ import type { Check } from "../../contracts/entities.js";
 import { UiEvidenceSchema } from "../../contracts/ui-evidence.js";
 import { isCheckPassed } from "../../domain/checks/evidence.js";
 import { summarizeAudit } from "../../domain/depaudit/summary.js";
+import { fallbacksOf } from "../../domain/provider/fallback.js";
 import { releaseStatusOf } from "../../domain/release/status.js";
 import { deliveryStateOf } from "../../domain/report/delivery-state.js";
 import type {
@@ -387,7 +388,11 @@ export const buildRunReport = (
 			finalCheck: finalCheck === undefined ? null : toRef(finalCheck),
 			finalCheckValid: finalCheck !== undefined && isCheckPassed(finalCheck),
 		},
-		provider: { mode: run.providerMode ?? "none", phases: providerPhases(deps, runId) },
+		provider: {
+			mode: run.providerMode ?? "none",
+			phases: providerPhases(deps, runId),
+			fallbacks: fallbacksOf(events),
+		},
 		runner: {
 			isolation:
 				checks.length === 0

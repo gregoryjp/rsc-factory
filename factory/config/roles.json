@@ -1,13 +1,59 @@
 {
-	"spec-writer": { "provider": "claude", "model": "opus" },
-	"architect": { "provider": "claude", "model": "opus" },
-	"planner": { "provider": "claude", "model": "opus" },
-	"builder": { "provider": "claude", "model": "sonnet" },
-	"reviewer-security": { "provider": "claude", "model": "sonnet" },
-	"reviewer-code": { "provider": "claude", "model": "sonnet" },
-	"reviewer-ux": { "provider": "codex", "model": "gpt-6-astra", "effort": "medium" },
-	"reviewer-ui": { "provider": "codex", "model": "gpt-6-astra", "effort": "medium" },
-	"reviewer-legal": { "provider": "claude", "model": "sonnet" },
-	"review-refuter": { "provider": "claude", "model": "sonnet" },
-	"approver": { "provider": "claude", "model": "opus" }
+	"spec-writer": {
+		"provider": "claude",
+		"model": "opus",
+		"fallback": { "provider": "codex", "model": "gpt-6-astra", "effort": "high" }
+	},
+	"architect": {
+		"provider": "claude",
+		"model": "opus",
+		"fallback": { "provider": "codex", "model": "gpt-6-astra", "effort": "high" }
+	},
+	"planner": {
+		"provider": "claude",
+		"model": "opus",
+		"fallback": { "provider": "codex", "model": "gpt-6-astra", "effort": "high" }
+	},
+	"builder": {
+		"provider": "claude",
+		"model": "sonnet",
+		"fallback": { "provider": "codex", "model": "gpt-6-sol", "effort": "medium" }
+	},
+	"reviewer-security": {
+		"provider": "claude",
+		"model": "sonnet",
+		"fallback": { "provider": "codex", "model": "gpt-6-sol", "effort": "medium" }
+	},
+	"reviewer-code": {
+		"provider": "claude",
+		"model": "sonnet",
+		"fallback": { "provider": "codex", "model": "gpt-6-sol", "effort": "medium" }
+	},
+	"reviewer-ux": {
+		"provider": "codex",
+		"model": "gpt-6-astra",
+		"effort": "medium",
+		"fallback": { "provider": "claude", "model": "sonnet" }
+	},
+	"reviewer-ui": {
+		"provider": "codex",
+		"model": "gpt-6-astra",
+		"effort": "medium",
+		"fallback": { "provider": "claude", "model": "sonnet" }
+	},
+	"reviewer-legal": {
+		"provider": "claude",
+		"model": "sonnet",
+		"fallback": { "provider": "codex", "model": "gpt-6-sol", "effort": "medium" }
+	},
+	"review-refuter": {
+		"provider": "claude",
+		"model": "sonnet",
+		"fallback": { "provider": "codex", "model": "gpt-6-sol", "effort": "medium" }
+	},
+	"approver": {
+		"provider": "claude",
+		"model": "opus",
+		"fallback": { "provider": "codex", "model": "gpt-6-astra", "effort": "high" }
+	}
 }

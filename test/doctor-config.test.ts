@@ -381,3 +381,59 @@ describe("runner selection in config and doctor", () => {
 		expect(report.hasFailure).toBe(true);
 	});
 });
+
+describe("doctor provider fallback check", () => {
+	const withFallbacks = (): RolesConfig =>
+		RolesConfigSchema.parse({
+			...claudeOnlyRoles,
+			planner: {
+				provider: "claude",
+				model: "opus",
+				fallback: { provider: "codex", model: "gpt-6-sol", effort: "high" },
+			},
+		});
+
+	const fallbackDeps = (table: Parameters<typeof runnerFor>[0], overrides = {}) => ({
+		...baseDeps(runnerFor(table)),
+		roles: ok(withFallbacks()),
+		codexLoggedIn: true,
+		...overrides,
+	});
+
+	it("is ok when no role declares a fallback", async () => {
+		const report = await runDoctor(baseDeps(runnerFor(claudeTable)));
+		expect(statusOf(report, "provider-fallback")).toBe("ok");
+	});
+
+	it("is ok when the codex fallback binary, model, login and docker are usable", async () => {
+		const report = await runDoctor(
+			fallbackDeps({
+				...claudeTable,
+				codex: `codex-cli ${EXPECTED_CODEX_VERSION}`,
+				docker: "Ubuntu",
+			}),
+		);
+		expect(statusOf(report, "provider-fallback")).toBe("ok");
+	});
+
+	it("only warns when the fallback is unusable", async () => {
+		const table = {
+			...claudeTable,
+			codex: `codex-cli ${EXPECTED_CODEX_VERSION}`,
+			docker: "Ubuntu",
+		};
+		const noBinary = await runDoctor(fallbackDeps({ ...claudeTable, docker: "Ubuntu" }));
+		expect(statusOf(noBinary, "provider-fallback")).toBe("warn");
+		const noModel = await runDoctor(fallbackDeps(table, { codexModels: ok(["gpt-6-astra"]) }));
+		expect(statusOf(noModel, "provider-fallback")).toBe("warn");
+		const noLogin = await runDoctor(fallbackDeps(table, { codexLoggedIn: false }));
+		expect(statusOf(noLogin, "provider-fallback")).toBe("warn");
+		const noDocker = await runDoctor(fallbackDeps({ ...table, docker: undefined }));
+		expect(statusOf(noDocker, "provider-fallback")).toBe("warn");
+		expect(noDocker.hasFailure).toBe(false);
+		expect(noModel.hasFailure).toBe(false);
+		expect(noBinary.checks.find((c) => c.name === "provider-fallback")?.detail).toContain(
+			"planner",
+		);
+	});
+});

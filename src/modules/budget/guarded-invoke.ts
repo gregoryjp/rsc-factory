@@ -1,5 +1,7 @@
 import type { z } from "zod";
-import type { Role } from "../../contracts/planning.js";
+import type { Effort, ProviderName, Role } from "../../contracts/planning.js";
+import { fallbackIndependenceWarning } from "../../domain/planning/roles.js";
+import { fallbackReasonOf } from "../../domain/provider/fallback.js";
 import { backoffDelayMs } from "../../domain/provider/quota.js";
 import type {
 	ProviderFailure,
@@ -8,6 +10,7 @@ import type {
 } from "../../infrastructure/providers/provider-port.js";
 import type { Result } from "../../shared/result.js";
 import type { PlanDeps } from "../planning/deps.js";
+import { loadRolesConfig } from "../planning/roles-config.js";
 import { isRunCanceled } from "../runs/cancellation.js";
 import { loadBudgetConfig } from "./load-config.js";
 
@@ -23,6 +26,8 @@ export type GuardedAttempt<T> = {
 
 export type GuardedCall<T> = { halted: Halt } | { halted?: undefined; attempt: GuardedAttempt<T> };
 
+export type ProviderTarget = { provider: ProviderName; model: string; effort?: Effort };
+
 export type GuardedInput = {
 	runId: string;
 	role: Role;
@@ -32,6 +37,7 @@ export type GuardedInput = {
 	promptHash: string;
 	request: Omit<ProviderRequest, "maxBudgetUsd" | "signal">;
 	eventExtras?: Record<string, unknown>;
+	fallback?: ProviderTarget;
 };
 
 const RETRYABLE_ONCE = "timeout";
@@ -40,10 +46,20 @@ const TRANSIENT = "rate_limited_transient";
 const defaultSleep = (ms: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, ms));
 
-export const guardedInvoke = async <T>(
+const withoutRouting = (
+	request: GuardedInput["request"],
+): Omit<GuardedInput["request"], "provider" | "model" | "effort"> => {
+	const { provider: _provider, model: _model, effort: _effort, ...rest } = request;
+	return rest;
+};
+
+const labelOf = (target: ProviderTarget): string => `${target.provider}/${target.model}`;
+
+const invokeOnTarget = async <T>(
 	deps: PlanDeps,
 	input: GuardedInput,
 	schema: z.ZodType<T>,
+	target: ProviderTarget,
 ): Promise<GuardedCall<T>> => {
 	const { storage, clock } = deps;
 	const config = loadBudgetConfig(deps.factoryFiles);
@@ -51,7 +67,7 @@ export const guardedInvoke = async <T>(
 		return { halted: { kind: "budget_config_invalid", message: config.error.message } };
 	}
 	const { retry, maxCallUsd, maxCodexCallsPerRun } = config.value;
-	const provider = input.request.provider ?? "claude";
+	const { provider } = target;
 	const ceiling = provider === "codex" ? 0 : maxCallUsd[input.role];
 	let timeoutsRetried = 0;
 
@@ -92,7 +108,7 @@ export const guardedInvoke = async <T>(
 			runId: input.runId,
 			role: input.role,
 			repair: input.repair,
-			model: input.model,
+			model: target.model,
 			promptFile: input.promptFile,
 			promptHash: input.promptHash,
 			tryNumber,
@@ -108,11 +124,11 @@ export const guardedInvoke = async <T>(
 				attemptId,
 				repair: input.repair,
 				tryNumber,
-				model: input.model,
+				model: target.model,
 				promptHash: input.promptHash,
 				provider: deps.settings.providerKind,
 				roleProvider: provider,
-				...(input.request.effort === undefined ? {} : { effort: input.request.effort }),
+				...(target.effort === undefined ? {} : { effort: target.effort }),
 				reservedUsd: ceiling,
 				...input.eventExtras,
 			},
@@ -120,7 +136,10 @@ export const guardedInvoke = async <T>(
 		});
 		const result = await deps.provider.invoke(
 			{
-				...input.request,
+				...withoutRouting(input.request),
+				provider: target.provider,
+				model: target.model,
+				...(target.effort === undefined ? {} : { effort: target.effort }),
 				runId: input.runId,
 				maxBudgetUsd: ceiling,
 				...(deps.signal === undefined ? {} : { signal: deps.signal }),
@@ -143,7 +162,7 @@ export const guardedInvoke = async <T>(
 						role: input.role,
 						attemptId,
 						provider,
-						model: input.model,
+						model: target.model,
 						...result.value.usage,
 					},
 					now: clock.now(),
@@ -182,4 +201,81 @@ export const guardedInvoke = async <T>(
 		});
 		await (deps.sleep ?? defaultSleep)(delayMs);
 	}
+};
+
+const finishAsProviderFailure = (
+	deps: PlanDeps,
+	attemptId: number,
+	failure: ProviderFailure,
+): void =>
+	deps.storage.roleAttempts.finish(attemptId, {
+		outcome: "provider_failed",
+		costUsd: failure.costUsd,
+		error: failure.message,
+		failureClass: failure.kind,
+		now: deps.clock.now(),
+	});
+
+const recordFallback = (
+	deps: PlanDeps,
+	input: GuardedInput,
+	from: ProviderTarget,
+	attemptId: number,
+	reason: string,
+): void => {
+	const { storage, clock } = deps;
+	storage.events.append({
+		runId: input.runId,
+		type: "provider.fallback",
+		payload: {
+			role: input.role,
+			attemptId,
+			from: labelOf(from),
+			to: labelOf(input.fallback ?? from),
+			reason,
+		},
+		now: clock.now(),
+	});
+	const roles = loadRolesConfig(deps.factoryFiles);
+	const warning =
+		roles.ok && input.fallback !== undefined
+			? fallbackIndependenceWarning(input.role, input.fallback, roles.value)
+			: undefined;
+	if (warning !== undefined) {
+		storage.events.append({
+			runId: input.runId,
+			type: "roles.warning",
+			payload: { warnings: [warning] },
+			now: clock.now(),
+		});
+	}
+};
+
+export const guardedInvoke = async <T>(
+	deps: PlanDeps,
+	input: GuardedInput,
+	schema: z.ZodType<T>,
+): Promise<GuardedCall<T>> => {
+	const primary: ProviderTarget = {
+		provider: input.request.provider ?? "claude",
+		model: input.model,
+		...(input.request.effort === undefined ? {} : { effort: input.request.effort }),
+	};
+	const first = await invokeOnTarget(deps, input, schema, primary);
+	const { fallback } = input;
+	if (first.halted || first.attempt.result.ok || fallback === undefined) return first;
+	if (deps.settings.providerKind === "fake" || fallback.provider === primary.provider) return first;
+	const failure = first.attempt.result.error;
+	const reason = fallbackReasonOf(failure);
+	if (reason === null || isRunCanceled(deps, input.runId)) return first;
+	recordFallback(deps, input, primary, first.attempt.attemptId, reason);
+	const second = await invokeOnTarget(deps, input, schema, fallback);
+	if (second.halted) return second.halted.kind === "run_canceled" ? second : first;
+	const secondResult = second.attempt.result;
+	if (!secondResult.ok && fallbackReasonOf(secondResult.error) !== null) {
+		finishAsProviderFailure(deps, second.attempt.attemptId, secondResult.error);
+		return first;
+	}
+	finishAsProviderFailure(deps, first.attempt.attemptId, failure);
+	return second;
 };

@@ -32,6 +32,7 @@ export const EventTypeSchema = z.enum([
 	"budget.added",
 	"provider.retry",
 	"provider.usage",
+	"provider.fallback",
 	"roles.warning",
 	"build.canceled",
 	"audit.completed",

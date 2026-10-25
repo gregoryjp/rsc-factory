@@ -127,3 +127,9 @@ Evidencia: `test/fixtures/codex/real_codex_docker_ok.jsonl` (salida real de `cod
 | CA | la imagen no trae `ca-certificates`: sin ellas Codex falla con `invalid peer certificate: UnknownIssuer`. Se genera `/tmp/ca-bundle.pem` desde `tls.rootCertificates` de Node al arrancar y se exporta `SSL_CERT_FILE`/`CODEX_CA_CERTIFICATE` | Llamada real `{"ok":true}` con `gpt-6-astra`/`medium` OK en ~10 s |
 | Sandbox propio de Codex | `bwrap: setting up uid map: Operation not permitted` dentro del contenedor (sin capacidades): se usa `-s danger-full-access` | Verificado con `codex sandbox linux` en el contenedor |
 | Docker Desktop | `--user 0:0` (misma lógica `containerUserFor`); los bind mounts deben estar bajo `$HOME` | Verificado en Docker Desktop; en motor nativo no está verificado |
+
+## H7c — Fallback de proveedor por rol (verificado 2026-10-25)
+
+- `gpt-6-sol` y `gpt-6-astra` figuran en `~/.codex/models_cache.json` (lista de slugs leída; sin llamadas reales nuevas). Los modelos de fallback de `roles.json` se avisan en `doctor` si desaparecen de la caché.
+- Los patrones de fallo de «sin sesión»/«modelo inexistente» de `claude` son aproximaciones de texto (no capturados con la CLI real); un texto no reconocido cae en `provider_error`, que también dispara el fallback.
+- Confinamiento de un builder Codex (`acceptEdits`) dentro del contenedor del ADR 0018: verificado con Docker real en `test/docker/codex-builder-confinement.docker.test.ts` (escritura solo en el worktree, sin gitdir/repo/`~/.ssh` visibles, rootfs de solo lectura, commits solo del motor, `.git` reescrito detectado). La calidad de un builder Codex no está medida.
