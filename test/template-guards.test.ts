@@ -495,6 +495,37 @@ describe("apiweb/web static baseline", () => {
 	});
 });
 
+describe("mobile security baseline", () => {
+	const MOBILE = join(REPO_ROOT, "factory", "templates", "mobile");
+
+	it("pins expo-secure-store exactly and renders the deep link policy", () => {
+		const pkg = JSON.parse(readFileSync(join(MOBILE, "package.json"), "utf8")) as {
+			dependencies: Record<string, string>;
+		};
+		expect(pkg.dependencies["expo-secure-store"]).toMatch(/^\d+\.\d+\.\d+$/);
+		const manifest = JSON.parse(readFileSync(join(MOBILE, "template.json"), "utf8")) as {
+			render: string[];
+		};
+		expect(manifest.render).toContain("src/navigation/deepLinkPolicy.ts");
+		expect(readFileSync(join(MOBILE, "app.json"), "utf8")).toContain("{{PRODUCT_SLUG}}");
+	});
+
+	it("ships the secure token, deep link and source rule modules with tests and documents them", () => {
+		for (const path of [
+			"src/storage/secureToken.ts",
+			"src/storage/secureToken.test.ts",
+			"src/navigation/validateDeepLink.ts",
+			"src/navigation/validateDeepLink.test.ts",
+			"src/security/sourceRules.test.ts",
+		]) {
+			expect(existsSync(join(MOBILE, path)), path).toBe(true);
+		}
+		const agents = readFileSync(join(MOBILE, "AGENTS.md"), "utf8");
+		expect(agents).toContain("EXPO_PUBLIC_*");
+		expect(agents).toContain("AsyncStorage");
+	});
+});
+
 describe("template .gitignore", () => {
 	const ignored = (templateDir: string, paths: string[]) => {
 		const repo = tree({ ".gitignore": readFileSync(join(templateDir, ".gitignore"), "utf8") });
