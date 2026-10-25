@@ -23,7 +23,7 @@ Hasta H6 todos los roles usaban `claude` con un único modelo. Se quiere (a) ele
 
 ## Riesgos aceptados / abiertos
 
-- El sandbox `read-only` de Codex permite **leer todo el sistema de archivos** (comprobado). Un revisor Codex podría leer `~/.ssh` o el `auth.json` real e incluirlo en su salida o enviarlo al modelo de OpenAI. Mitigaciones actuales: sin red desde comandos, HOME vacío, entrada del revisor controlada por la factory. No se encontró un modo verificado de restringir lecturas (perfiles de permisos de `config.toml` sin probar). Pendiente antes de usar Codex con repositorios no confiables.
+- El sandbox `read-only` de Codex permite **leer todo el sistema de archivos** (comprobado). Un revisor Codex podría leer `~/.ssh` o el `auth.json` real e incluirlo en su salida o enviarlo al modelo de OpenAI. Mitigaciones actuales: sin red desde comandos, HOME vacío, entrada del revisor controlada por la factory. No se encontró un modo verificado de restringir lecturas (perfiles de permisos de `config.toml` sin probar). **Resuelto en el ADR 0018**: toda llamada Codex corre en un contenedor que solo monta lo necesario.
 - Los revisores UX/UI leen capturas PNG; no se verificó que Codex pueda inspeccionarlas con sus herramientas en `read-only` (Claude las lee con `Read`).
 - El texto real del límite de uso de Codex no está capturado; el parser se probó con mensajes sintéticos.
 - Cada llamada consume ~13,6k tokens de entrada solo por el prompt de sistema de Codex.

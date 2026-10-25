@@ -18,6 +18,7 @@ Dentro de este repositorio el comando se ejecuta como `npm run factory -- <coman
 | `FACTORY_HOME` | `<cwd>/.factory` | Base de datos (`factory.db`) y copias inmutables de PRD en `runs/<runId>/input/prd.md` |
 | `FACTORY_CLAUDE_BIN` | `claude` | Ejecutable del proveedor Claude (lo usa `plan`) |
 | `FACTORY_CODEX_BIN` | `codex` | Ejecutable del proveedor Codex (revisores UX/UI por defecto) |
+| `FACTORY_CODEX_HOST_UNSAFE` | (sin definir) | `1` permite ejecutar Codex en el host sin aislamiento si Docker no está disponible; sin esto la llamada falla con `codex_requires_docker` (ADR 0018) |
 | `FACTORY_CODEX_HOME` | `~/.codex` | De aquí se copia solo `auth.json` a un `CODEX_HOME` temporal por llamada; también se lee `models_cache.json` en `doctor` |
 | `FACTORY_PROVIDER` | `claude` | `claude` (real) o `fake` (solo pruebas; ver abajo) |
 | `FACTORY_FAKE_FIXTURES` | — | Directorio con `spec-writer.json`, `architect.json`, `planner.json` (y, opcionales, `builder.json`, `reviewer-security.json`, `reviewer-code.json`, `reviewer-ux.json`, `reviewer-ui.json`, `reviewer-legal.json`, `review-refuter.json` y `approver.json`); obligatorio si `FACTORY_PROVIDER=fake` |

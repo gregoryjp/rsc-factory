@@ -148,6 +148,48 @@ describe("doctor codex and role checks", () => {
 		expect(matrix).toContain(`| Codex CLI | ${EXPECTED_CODEX_VERSION} |`);
 	});
 
+	it("fails codex-isolation when roles use codex and docker is unavailable", async () => {
+		const deps = {
+			...baseDeps(
+				runnerFor({
+					...claudeTable,
+					docker: undefined,
+					codex: `codex-cli ${EXPECTED_CODEX_VERSION}`,
+				}),
+			),
+			roles: ok(withUiOnCodex()),
+		};
+		const failing = await runDoctor(deps);
+		expect(statusOf(failing, "codex-isolation")).toBe("fail");
+		expect(failing.checks.find((c) => c.name === "codex-isolation")?.detail).toContain(
+			"codex_requires_docker",
+		);
+		const unsafe = await runDoctor({ ...deps, codexHostUnsafe: true });
+		expect(statusOf(unsafe, "codex-isolation")).toBe("warn");
+		const withDocker = await runDoctor({
+			...deps,
+			exec: runnerFor({
+				...claudeTable,
+				codex: `codex-cli ${EXPECTED_CODEX_VERSION}`,
+				docker: "Ubuntu",
+			}),
+		});
+		expect(statusOf(withDocker, "codex-isolation")).toBe("ok");
+	});
+
+	it("does not need codex isolation when no role uses codex", async () => {
+		const report = await runDoctor(baseDeps(runnerFor(claudeTable)));
+		expect(statusOf(report, "codex-isolation")).toBe("ok");
+	});
+
+	it("reads FACTORY_CODEX_HOST_UNSAFE only when it is exactly 1", () => {
+		expect(loadConfig({}, "/x")).toMatchObject({ value: { codexHostUnsafe: false } });
+		expect(loadConfig({ FACTORY_CODEX_HOST_UNSAFE: "1" }, "/x")).toMatchObject({
+			value: { codexHostUnsafe: true },
+		});
+		expect(loadConfig({ FACTORY_CODEX_HOST_UNSAFE: "yes" }, "/x")).toMatchObject({ ok: false });
+	});
+
 	it("does not need codex when no role uses it", async () => {
 		const report = await runDoctor(baseDeps(runnerFor(claudeTable)));
 		expect(statusOf(report, "codex")).toBe("ok");

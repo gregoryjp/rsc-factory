@@ -8,11 +8,18 @@ import {
 	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { z } from "zod";
 import { classifyCodexError } from "../../domain/provider/codex-quota.js";
 import type { Result } from "../../shared/result.js";
 import { err, ok } from "../../shared/result.js";
+import { createDockerExec } from "../runner/docker-cli.js";
+import {
+	buildCodexCleanupArgvs,
+	buildCodexNetworkCreateArgv,
+	buildCodexRunArgv,
+	CONTAINER_MOUNTS,
+} from "./codex-docker.js";
 import type {
 	ProviderFailure,
 	ProviderPort,
@@ -20,7 +27,12 @@ import type {
 	ProviderSuccess,
 	TokenUsage,
 } from "./provider-port.js";
-import { DEFAULT_MAX_OUTPUT_BYTES, MAX_TIMER_MS, runProcess } from "./run-process.js";
+import {
+	type Completed,
+	DEFAULT_MAX_OUTPUT_BYTES,
+	MAX_TIMER_MS,
+	runProcess,
+} from "./run-process.js";
 
 const AUTH_FILE_NAME = "auth.json";
 const PRIVATE_DIR_MODE = 0o700;
@@ -43,6 +55,8 @@ const SANDBOX_BY_PERMISSION: Record<string, string> = {
 	acceptEdits: "workspace-write",
 };
 const DEFAULT_SANDBOX = "read-only";
+const CONTAINER_SANDBOX = "danger-full-access";
+const DEFAULT_RUN_ID = "adhoc";
 
 const UsageSchema = z.object({
 	input_tokens: z.number().optional(),
@@ -66,7 +80,11 @@ type Parsed = {
 	failureMessage: string | undefined;
 };
 
-export const buildCodexArgs = (request: ProviderRequest, schemaFile: string): string[] => [
+export const buildCodexArgs = (
+	request: ProviderRequest,
+	schemaFile: string,
+	containerized = false,
+): string[] => [
 	"exec",
 	"--json",
 	"--ephemeral",
@@ -77,14 +95,16 @@ export const buildCodexArgs = (request: ProviderRequest, schemaFile: string): st
 	"-c",
 	'web_search="disabled"',
 	"-s",
-	SANDBOX_BY_PERMISSION[request.permissionMode ?? ""] ?? DEFAULT_SANDBOX,
+	containerized
+		? CONTAINER_SANDBOX
+		: (SANDBOX_BY_PERMISSION[request.permissionMode ?? ""] ?? DEFAULT_SANDBOX),
 	"-m",
 	request.model,
 	...(request.effort === undefined ? [] : ["-c", `model_reasoning_effort="${request.effort}"`]),
 	"--output-schema",
 	schemaFile,
 	"-C",
-	request.cwd,
+	containerized ? CONTAINER_MOUNTS.workspace : request.cwd,
 	"-",
 ];
 
@@ -155,7 +175,7 @@ const failedCall = (message: string, now: number) => {
 	return failure("provider_error", false, snippet(message));
 };
 
-const pickEnv = (source: NodeJS.ProcessEnv, names: readonly string[]): NodeJS.ProcessEnv =>
+const pickEnv = (source: NodeJS.ProcessEnv, names: readonly string[]): Record<string, string> =>
 	Object.fromEntries(
 		names.flatMap((name) => {
 			const value = source[name];
@@ -176,6 +196,77 @@ const writeBackRotatedAuth = (homeAuth: string, authFile: string, original: stri
 	}
 };
 
+export type CodexDockerIsolation = {
+	dockerBin: string;
+	baseEnv: Readonly<Record<string, string>>;
+	image: string;
+	vendorDir: string;
+	user: { uid: number; gid: number };
+	hostHome: string;
+	forbiddenRoots: readonly string[];
+};
+
+type Launched =
+	| { kind: "completed"; done: Completed }
+	| { kind: "docker_unavailable"; reason: string };
+
+const requiresDocker = (reason: string) =>
+	failure(
+		"provider_error",
+		false,
+		`codex_requires_docker: ${reason}; start Docker or set FACTORY_CODEX_HOST_UNSAFE=1 to run Codex on the host without isolation`,
+	);
+
+const runInContainer = async (
+	docker: CodexDockerIsolation,
+	request: ProviderRequest,
+	files: { callDir: string; homeDir: string; schemaFile: string },
+	options: { maxOutputBytes: number; env: Readonly<Record<string, string>> },
+): Promise<Result<Launched, ProviderFailure>> => {
+	const runId = request.runId ?? DEFAULT_RUN_ID;
+	const callId = basename(files.callDir).replace(/^call-/, "");
+	const argv = buildCodexRunArgv({
+		runId,
+		callId,
+		image: docker.image,
+		vendorDir: docker.vendorDir,
+		homeDir: files.homeDir,
+		schemaFile: files.schemaFile,
+		workspace: request.cwd,
+		writableWorkspace: request.permissionMode === "acceptEdits",
+		user: docker.user,
+		hostHome: docker.hostHome,
+		forbiddenRoots: docker.forbiddenRoots,
+		env: options.env,
+		codexArgs: buildCodexArgs(request, CONTAINER_MOUNTS.schema, true),
+	});
+	if (!argv.ok) return failure("provider_error", false, argv.error.message);
+	const exec = createDockerExec({ dockerBin: docker.dockerBin, baseEnv: docker.baseEnv });
+	const network = await exec(buildCodexNetworkCreateArgv(runId, callId));
+	const networkFailure = !network.ok
+		? network.error.message
+		: network.value.status === 0
+			? undefined
+			: snippet(network.value.stderr);
+	if (networkFailure !== undefined) {
+		await exec(buildCodexCleanupArgvs(runId, callId)[1] ?? []);
+		return ok({ kind: "docker_unavailable", reason: networkFailure });
+	}
+	try {
+		const done = await runProcess(docker.dockerBin, argv.value, {
+			cwd: files.callDir,
+			env: docker.baseEnv,
+			timeoutMs: request.timeoutMs,
+			maxOutputBytes: options.maxOutputBytes,
+			signal: request.signal,
+			input: buildCodexPrompt(request),
+		});
+		return ok({ kind: "completed", done });
+	} finally {
+		for (const cleanup of buildCodexCleanupArgvs(runId, callId)) await exec(cleanup);
+	}
+};
+
 export const createCodexCliProvider = (config: {
 	binaryPath: string;
 	authFile: string;
@@ -184,6 +275,8 @@ export const createCodexCliProvider = (config: {
 	passEnv?: readonly string[];
 	maxOutputBytes?: number;
 	now?: () => number;
+	resolveDocker?: () => Promise<Result<CodexDockerIsolation, string>>;
+	allowHostUnsafe?: boolean;
 }): ProviderPort => ({
 	invoke: async <T>(
 		request: ProviderRequest,
@@ -225,18 +318,37 @@ export const createCodexCliProvider = (config: {
 			chmodSync(homeAuth, PRIVATE_FILE_MODE);
 			writeFileSync(schemaFile, JSON.stringify(request.jsonSchema));
 
-			const done = await runProcess(config.binaryPath, buildCodexArgs(request, schemaFile), {
-				cwd: request.cwd,
-				env: {
-					...pickEnv(config.env ?? {}, [...BASE_ENV_NAMES, ...(config.passEnv ?? [])]),
-					HOME: homeDir,
-					CODEX_HOME: homeDir,
-				},
-				timeoutMs: request.timeoutMs,
-				maxOutputBytes: config.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES,
-				signal: request.signal,
-				input: buildCodexPrompt(request),
-			});
+			const maxOutputBytes = config.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
+			const runOnHost = () =>
+				runProcess(config.binaryPath, buildCodexArgs(request, schemaFile), {
+					cwd: request.cwd,
+					env: {
+						...pickEnv(config.env ?? {}, [...BASE_ENV_NAMES, ...(config.passEnv ?? [])]),
+						HOME: homeDir,
+						CODEX_HOME: homeDir,
+					},
+					timeoutMs: request.timeoutMs,
+					maxOutputBytes,
+					signal: request.signal,
+					input: buildCodexPrompt(request),
+				});
+			const isolation =
+				config.resolveDocker === undefined
+					? err("Docker isolation is not configured")
+					: await config.resolveDocker();
+			const launched: Result<Launched, ProviderFailure> = isolation.ok
+				? await runInContainer(
+						isolation.value,
+						request,
+						{ callDir, homeDir, schemaFile },
+						{ maxOutputBytes, env: pickEnv(config.env ?? {}, ["LANG", "LC_ALL"]) },
+					)
+				: ok({ kind: "docker_unavailable", reason: isolation.error });
+			if (!launched.ok) return launched;
+			if (launched.value.kind === "docker_unavailable" && config.allowHostUnsafe !== true) {
+				return requiresDocker(launched.value.reason);
+			}
+			const done = launched.value.kind === "completed" ? launched.value.done : await runOnHost();
 			writeBackRotatedAuth(homeAuth, config.authFile, originalAuth);
 
 			if (done.aborted) return failure("aborted", false, "The call was aborted");

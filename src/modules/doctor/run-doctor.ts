@@ -22,6 +22,7 @@ export type DoctorDeps = {
 	expectedClaudeVersion: string;
 	expectedCodexVersion: string;
 	codexBin?: string;
+	codexHostUnsafe?: boolean;
 	roles: Result<RolesConfig, Failure<string>>;
 	codexModels: Result<string[], Failure<string>>;
 	provider: ProviderConfig;
@@ -93,6 +94,29 @@ const checkCodex = async (deps: DoctorDeps): Promise<DoctorCheck> => {
 				"codex",
 				"warn",
 				`Codex CLI ${found.version}; compatibility matrix verified ${deps.expectedCodexVersion}`,
+			);
+};
+
+const checkCodexIsolation = async (deps: DoctorDeps): Promise<DoctorCheck> => {
+	if (codexRoles(deps).length === 0) return check("codex-isolation", "ok", "not used by any role");
+	const info = await deps.exec(
+		"docker",
+		["info", "--format", "{{.OperatingSystem}}"],
+		PROBE_TIMEOUT_MS,
+	);
+	if (info.ok) {
+		return check("codex-isolation", "ok", "codex runs in a read-only container (ADR 0018)");
+	}
+	return deps.codexHostUnsafe === true
+		? check(
+				"codex-isolation",
+				"warn",
+				`docker unavailable (${info.error.message}); FACTORY_CODEX_HOST_UNSAFE=1 runs codex on the host, where it can read the whole filesystem`,
+			)
+		: check(
+				"codex-isolation",
+				"fail",
+				`codex_requires_docker: docker unavailable (${info.error.message}); start Docker or set FACTORY_CODEX_HOST_UNSAFE=1`,
 			);
 };
 
@@ -220,6 +244,7 @@ export const runDoctor = async (deps: DoctorDeps): Promise<DoctorReport> => {
 		await checkClaude(deps),
 		await checkCodex(deps),
 		checkCodexModels(deps),
+		await checkCodexIsolation(deps),
 		checkRoleIndependence(deps),
 		checkProvider(deps),
 		await checkOptional(deps, "docker", "docker", "Docker is needed for isolation from H3"),

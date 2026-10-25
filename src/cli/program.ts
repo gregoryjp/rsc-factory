@@ -119,6 +119,7 @@ export const runCli = async (
 				expectedClaudeVersion: EXPECTED_CLAUDE_VERSION,
 				expectedCodexVersion: EXPECTED_CODEX_VERSION,
 				codexBin: config.codexBin,
+				codexHostUnsafe: config.codexHostUnsafe,
 				roles: loadRolesConfig(createFsFactoryFiles({ repoRoot: config.repoRoot })),
 				codexModels: readCodexModelSlugs(config.codexHome),
 				provider: config.provider,

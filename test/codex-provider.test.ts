@@ -57,6 +57,7 @@ const setup = (
 		binaryPath: FAKE_BINARY,
 		authFile,
 		workDir,
+		allowHostUnsafe: true,
 		now: () => NOW,
 		env: {
 			PATH: process.env.PATH,

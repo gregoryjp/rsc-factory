@@ -115,3 +115,15 @@ Evidencia: `test/fixtures/codex/real_codex_ok.jsonl` y `real_codex_model_not_fou
 - El sandbox `read-only` de Codex **permite leer todo el sistema de archivos** del usuario (comprobado con `codex sandbox`: lee `~/.codex/config.toml` y lista `~/.ssh`); solo impide escribir y usar red desde los comandos. Ver riesgos en el ADR 0017.
 - Modelos: `gpt-6-astra` y `gpt-6.1-sol` aparecen en `~/.codex/models_cache.json` (`gpt-6-astra` aceptado en la llamada real). Un modelo inexistente devuelve `model_not_found` (cubierto por fixture real).
 - Cuota/uso: Codex con ChatGPT Pro no informa USD. El texto exacto del error de límite de uso **no se capturó** (no se agotó la cuota): el clasificador se probó con mensajes sintéticos (`usage_limit_reached`, `resets_at`, `resets_in_seconds`, «try again in…/at…»).
+
+## H7b — Codex en contenedor (verificado 2026-10-25)
+
+Evidencia: `test/fixtures/codex/real_codex_docker_ok.jsonl` (salida real de `codex exec --json` dentro del contenedor) y `test/docker/codex-isolation.docker.test.ts`.
+
+| Componente | Valor | Verificación |
+|---|---|---|
+| Imagen de Codex | la misma `NODE_IMAGE` fijada por digest (`CODEX_IMAGE` en `src/config/compatibility.ts`) | El binario nativo de Codex es un ELF estático musl: corre en cualquier imagen; la de Node aporta `/bin/sh` y `node` (para generar el bundle de CA) |
+| Binario | directorio `vendor/<triple>` del paquete npm `@openai/codex-linux-<arch>`, montado de solo lectura en `/opt/codex` | `codex --version` dentro del contenedor = 0.154.0 |
+| CA | la imagen no trae `ca-certificates`: sin ellas Codex falla con `invalid peer certificate: UnknownIssuer`. Se genera `/tmp/ca-bundle.pem` desde `tls.rootCertificates` de Node al arrancar y se exporta `SSL_CERT_FILE`/`CODEX_CA_CERTIFICATE` | Llamada real `{"ok":true}` con `gpt-6-astra`/`medium` OK en ~10 s |
+| Sandbox propio de Codex | `bwrap: setting up uid map: Operation not permitted` dentro del contenedor (sin capacidades): se usa `-s danger-full-access` | Verificado con `codex sandbox linux` en el contenedor |
+| Docker Desktop | `--user 0:0` (misma lógica `containerUserFor`); los bind mounts deben estar bajo `$HOME` | Verificado en Docker Desktop; en motor nativo no está verificado |

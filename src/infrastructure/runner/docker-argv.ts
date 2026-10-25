@@ -5,11 +5,11 @@ import { type Failure, fail, ok, type Result } from "../../shared/result.js";
 export type DockerObjectKind = "container" | "network";
 
 const SUFFIX = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/;
-const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
+export const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
 const DB_IDENT = /^[a-z_][a-z0-9_]{0,62}$/;
 
 export const isValidDbIdent = (value: string): boolean => DB_IDENT.test(value);
-const FORBIDDEN_PATH_CHARS = /[,:\n\r\0]/;
+export const FORBIDDEN_PATH_CHARS = /[,:\n\r\0]/;
 
 const CHECK_MEMORY = "4g";
 const CHECK_PIDS = "1024";
@@ -25,14 +25,14 @@ export const postgresContainerName = (runId: string): string => `factory-${runId
 export const checkContainerName = (runId: string, suffix: string): string =>
 	`factory-${runId}-chk-${suffix}`;
 
-const labelArgs = (runId: string): string[] => [
+export const labelArgs = (runId: string): string[] => [
 	"--label",
 	"factory.managed=true",
 	"--label",
 	`factory.run=${runId}`,
 ];
 
-const isInside = (child: string, parent: string): boolean => {
+export const isInside = (child: string, parent: string): boolean => {
 	const rel = relative(parent, child);
 	return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 };

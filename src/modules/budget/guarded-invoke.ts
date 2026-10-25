@@ -121,6 +121,7 @@ export const guardedInvoke = async <T>(
 		const result = await deps.provider.invoke(
 			{
 				...input.request,
+				runId: input.runId,
 				maxBudgetUsd: ceiling,
 				...(deps.signal === undefined ? {} : { signal: deps.signal }),
 			},

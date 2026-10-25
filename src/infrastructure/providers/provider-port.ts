@@ -13,6 +13,7 @@ export type TokenUsage = {
 
 export type ProviderRequest = {
 	role?: string;
+	runId?: string;
 	provider?: ProviderName;
 	effort?: ProviderEffort;
 	prompt: string;

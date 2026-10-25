@@ -7,6 +7,8 @@ export const MIN_NODE_MAJOR = 22;
 export const NODE_IMAGE =
 	"node:22.23.2-bookworm-slim@sha256:48e4b67d85f87bd551df43704e24d252f56cc5f8e9718841aace50f19948f0f9";
 
+export const CODEX_IMAGE = NODE_IMAGE;
+
 export const PLAYWRIGHT_VERSION = "1.64.1";
 export const AXE_VERSION = "4.14.0";
 

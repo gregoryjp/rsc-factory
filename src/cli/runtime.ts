@@ -1,7 +1,12 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
-import { NODE_IMAGE, PLAYWRIGHT_IMAGE, POSTGRES_IMAGE } from "../config/compatibility.js";
+import {
+	CODEX_IMAGE,
+	NODE_IMAGE,
+	PLAYWRIGHT_IMAGE,
+	POSTGRES_IMAGE,
+} from "../config/compatibility.js";
 import type { Config } from "../config/env.js";
 import { RoleSchema } from "../contracts/planning.js";
 import { toProductName, toProductSlug } from "../domain/templates/render.js";
@@ -17,7 +22,11 @@ import { createReadOnlyGit } from "../infrastructure/git/read-only-git.js";
 import { uuidIds } from "../infrastructure/ids.js";
 import { execCommand } from "../infrastructure/process.js";
 import { createClaudeCliProvider } from "../infrastructure/providers/claude-cli-provider.js";
-import { createCodexCliProvider } from "../infrastructure/providers/codex-cli-provider.js";
+import {
+	type CodexDockerIsolation,
+	createCodexCliProvider,
+} from "../infrastructure/providers/codex-cli-provider.js";
+import { findCodexVendorDir } from "../infrastructure/providers/codex-docker.js";
 import type { ProviderPort } from "../infrastructure/providers/provider-port.js";
 import { createRoutingProvider } from "../infrastructure/providers/routing-provider.js";
 import {
@@ -36,7 +45,7 @@ import type { AppDeps } from "../modules/deps.js";
 import type { BuildRunDeps } from "../modules/execution/build-run.js";
 import type { PlanDeps } from "../modules/planning/deps.js";
 import type { PrdFiles, TargetFiles } from "../modules/runs/ports.js";
-import { type Failure, fail, ok, type Result } from "../shared/result.js";
+import { err, type Failure, fail, ok, type Result } from "../shared/result.js";
 
 export type Runtime = {
 	deps: AppDeps & { prdFiles: PrdFiles; targets: TargetFiles };
@@ -62,6 +71,34 @@ const OPTIONAL_FIXTURE_ROLES: readonly string[] = [
 	"approver",
 ];
 
+const CODEX_PROBE_TIMEOUT_MS = 10_000;
+
+const createCodexDockerResolver = (config: Config) => {
+	let resolved: CodexDockerIsolation | undefined;
+	return async (): Promise<Result<CodexDockerIsolation, string>> => {
+		if (resolved !== undefined) return ok(resolved);
+		const vendorDir = findCodexVendorDir(config.codexBin, config.subprocessEnv.PATH);
+		if (!vendorDir.ok) return err(vendorDir.error.message);
+		const probe = await execCommand(
+			"docker",
+			["info", "--format", "{{.OperatingSystem}}|{{json .SecurityOptions}}"],
+			CODEX_PROBE_TIMEOUT_MS,
+		);
+		if (!probe.ok) return err(`docker info failed: ${probe.error.message}`);
+		const hostUser = { uid: process.getuid?.() ?? 1000, gid: process.getgid?.() ?? 1000 };
+		resolved = {
+			dockerBin: "docker",
+			baseEnv: config.subprocessEnv,
+			image: CODEX_IMAGE,
+			vendorDir: vendorDir.value,
+			user: containerUserFor(probe.value.stdout.trim(), hostUser),
+			hostHome: homedir(),
+			forbiddenRoots: [join(homedir(), ".ssh"), config.codexHome],
+		};
+		return ok(resolved);
+	};
+};
+
 const createProvider = (config: Config): Result<ProviderPort, Failure> => {
 	if (config.provider.kind === "claude") {
 		return ok(
@@ -72,6 +109,8 @@ const createProvider = (config: Config): Result<ProviderPort, Failure> => {
 					authFile: join(config.codexHome, "auth.json"),
 					workDir: join(config.factoryHome, "codex-calls"),
 					env: config.subprocessEnv,
+					resolveDocker: createCodexDockerResolver(config),
+					allowHostUnsafe: config.codexHostUnsafe,
 				}),
 			}),
 		);
