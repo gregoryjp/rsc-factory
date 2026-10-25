@@ -16,11 +16,14 @@
 		"check:sql": "node scripts/check-raw-sql.mjs",
 		"check:comments": "node scripts/check-comments.mjs",
 		"check:layers": "node scripts/check-layers.mjs",
+		"check:pagination": "node scripts/check-pagination.mjs",
+		"check:deploy": "node scripts/check-deploy.mjs",
 		"test": "vitest run",
 		"db:generate": "prisma generate",
 		"db:migrate": "prisma migrate dev",
-		"db:deploy": "prisma migrate deploy",
-		"check": "npm run typecheck && npm run lint && npm run check:boundaries && npm run check:sql && npm run check:comments && npm run check:layers && npm test"
+		"db:deploy": "node scripts/migrate.mjs deploy",
+		"db:status": "node scripts/migrate.mjs status",
+		"check": "npm run typecheck && npm run lint && npm run check:boundaries && npm run check:sql && npm run check:comments && npm run check:layers && npm run check:pagination && npm run check:deploy && npm test"
 	},
 	"dependencies": {
 		"@node-rs/argon2": "2.2.2",

@@ -41,7 +41,7 @@ const bodyErrorType = (error: unknown): string | undefined =>
 
 export const createErrorHandler =
 	(logger: Logger): ErrorRequestHandler =>
-	(error, _req, res, next) => {
+	(error, req, res, next) => {
 		if (res.headersSent) {
 			next(error);
 			return;
@@ -75,7 +75,7 @@ export const createErrorHandler =
 			sendError(res, 404, { code: "NOT_FOUND", message: "Resource not found" });
 			return;
 		}
-		logger.error({ err: error }, "unhandled error");
+		(req.log ?? logger).error({ err: error }, "unhandled error");
 		sendError(res, 500, { code: "INTERNAL_ERROR", message: "Internal server error" });
 	};
 

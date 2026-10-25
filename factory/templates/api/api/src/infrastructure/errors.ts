@@ -6,6 +6,8 @@ export type ErrorCode =
 	| "UNAUTHORIZED"
 	| "FORBIDDEN"
 	| "CONFLICT"
+	| "IDEMPOTENCY_KEY_REUSED"
+	| "IDEMPOTENCY_IN_PROGRESS"
 	| "RATE_LIMITED"
 	| "REQUEST_TIMEOUT"
 	| "SERVICE_UNAVAILABLE"
@@ -43,3 +45,17 @@ export const forbidden = (message = "Forbidden"): AppError =>
 	new AppError(403, "FORBIDDEN", message);
 
 export const conflict = (message: string): AppError => new AppError(409, "CONFLICT", message);
+
+export const idempotencyKeyReused = (): AppError =>
+	new AppError(
+		422,
+		"IDEMPOTENCY_KEY_REUSED",
+		"Idempotency-Key was already used with a different request",
+	);
+
+export const idempotencyInProgress = (): AppError =>
+	new AppError(
+		409,
+		"IDEMPOTENCY_IN_PROGRESS",
+		"A request with this Idempotency-Key is in progress",
+	);

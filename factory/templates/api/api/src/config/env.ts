@@ -5,6 +5,7 @@ const EnvSchema = z
 		NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 		PORT: z.coerce.number().int().min(1).max(65535).default(3000),
 		DATABASE_URL: z.string().url(),
+		MIGRATION_DATABASE_URL: z.string().url().optional(),
 		LOG_LEVEL: z
 			.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
 			.default("info"),
@@ -31,6 +32,8 @@ const EnvSchema = z
 		RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
 		RATE_LIMIT_AUTH_MAX: z.coerce.number().int().min(1).default(10),
 		REQUEST_TIMEOUT_MS: z.coerce.number().int().min(100).default(30_000),
+		SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10_000),
+		IDEMPOTENCY_TTL_MS: z.coerce.number().int().min(60_000).default(86_400_000),
 	})
 	.superRefine((value, ctx) => {
 		const issue = (path: string, message: string): void =>
@@ -47,6 +50,14 @@ const EnvSchema = z
 			}
 			if (value.RATE_LIMIT_AUTH_MAX > 100) {
 				issue("RATE_LIMIT_AUTH_MAX", "must be at most 100 in production");
+			}
+		}
+		if (value.NODE_ENV === "production") {
+			if (value.MIGRATION_DATABASE_URL === value.DATABASE_URL) {
+				issue("MIGRATION_DATABASE_URL", "must differ from DATABASE_URL in production");
+			}
+			if (new URL(value.DATABASE_URL).username === "postgres") {
+				issue("DATABASE_URL", "must not use the postgres superuser in production");
 			}
 		}
 		if (value.NODE_ENV === "production" && value.CORS_ORIGINS.length === 0) {

@@ -1,29 +1,38 @@
-import { createProductApp } from "./composition.js";
+import { buildProduct } from "./composition.js";
 import { env } from "./config/env.js";
 import { prisma } from "./infrastructure/database.js";
+import { configureServerTimeouts } from "./infrastructure/http/serverTimeouts.js";
 import { logger } from "./infrastructure/logger.js";
+import { createShutdown } from "./infrastructure/shutdown.js";
 
-const SHUTDOWN_TIMEOUT_MS = 10_000;
+const PURGE_INTERVAL_MS = 60 * 60 * 1000;
 
-const server = createProductApp().listen(env.PORT, () => {
+const { app, lifecycle, idempotency } = buildProduct();
+
+const server = app.listen(env.PORT, () => {
 	logger.info({ port: env.PORT }, "server listening");
 });
 
-let shuttingDown = false;
+configureServerTimeouts(server, { requestTimeoutMs: env.REQUEST_TIMEOUT_MS });
 
-const shutdown = (signal: string): void => {
-	if (shuttingDown) return;
-	shuttingDown = true;
-	logger.info({ signal }, "shutting down");
-	const forced = setTimeout(() => process.exit(1), SHUTDOWN_TIMEOUT_MS);
-	forced.unref();
-	server.close(() => {
-		prisma
-			.$disconnect()
-			.then(() => process.exit(0))
-			.catch(() => process.exit(1));
+const purge = setInterval(() => {
+	idempotency.purgeExpired().catch((error: unknown) => {
+		logger.error({ err: error }, "idempotency purge failed");
 	});
-};
+}, PURGE_INTERVAL_MS);
+purge.unref();
 
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
+const shutdown = createShutdown({
+	server,
+	lifecycle,
+	closeResources: async () => {
+		clearInterval(purge);
+		await prisma.$disconnect();
+	},
+	logger,
+	timeoutMs: env.SHUTDOWN_TIMEOUT_MS,
+	exit: (code) => process.exit(code),
+});
+
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));

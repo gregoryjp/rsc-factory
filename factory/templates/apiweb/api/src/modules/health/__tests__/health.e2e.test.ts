@@ -1,8 +1,8 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import { createProductApp } from "../../../composition.js";
+import { buildProduct } from "../../../composition.js";
 
-const app = createProductApp();
+const { app, lifecycle } = buildProduct();
 
 describe("health", () => {
 	it("GET /health/live returns the success envelope", async () => {
@@ -38,5 +38,19 @@ describe("health", () => {
 			.send("{not json");
 		expect(response.status).toBe(400);
 		expect(response.body.error.code).toBe("INVALID_JSON");
+	});
+
+	it("keeps liveness up but fails readiness once shutdown has begun", async () => {
+		const draining = buildProduct();
+		draining.lifecycle.beginShutdown();
+		expect((await request(draining.app).get("/health/live")).status).toBe(200);
+		const ready = await request(draining.app).get("/health/ready");
+		expect(ready.status).toBe(503);
+		expect(ready.body.error.code).toBe("SERVICE_UNAVAILABLE");
+	});
+
+	it("reports readiness again while the lifecycle is running", async () => {
+		expect(lifecycle.isShuttingDown()).toBe(false);
+		expect((await request(app).get("/health/ready")).status).toBe(200);
 	});
 });
