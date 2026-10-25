@@ -17,6 +17,7 @@ import type { FactoryFiles } from "../../src/modules/planning/ports.js";
 import { sha256Of } from "../../src/shared/hash.js";
 import { ok } from "../../src/shared/result.js";
 import { createFakeClock, type FakeClock } from "./clock.js";
+import { ID_SALT_ENV } from "./id-salt.js";
 
 export const REPO_ROOT = join(import.meta.dirname, "..", "..");
 
@@ -45,11 +46,12 @@ export const withTestBudgetConfig = (files: FactoryFiles): FactoryFiles => ({
 			: files.read(relativePath),
 });
 
-export const createSequentialIds = (): IdGenerator => {
+export const createSequentialIds = (salt = process.env[ID_SALT_ENV] ?? ""): IdGenerator => {
 	let counter = 0;
+	const infix = salt === "" ? "" : `${salt}_`;
 	return (prefix) => {
 		counter += 1;
-		return `${prefix}_${counter}`;
+		return `${prefix}_${infix}${counter}`;
 	};
 };
 
