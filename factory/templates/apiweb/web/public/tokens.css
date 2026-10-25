@@ -1,0 +1,51 @@
+:root {
+  color-scheme: light dark;
+  --color-bg: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-text: #1c1c1a;
+  --color-muted: #5c5c57;
+  --color-link: #1d4ed8;
+  --color-primary: #1d4ed8;
+  --color-on-primary: #ffffff;
+  --color-border: #c9c9c2;
+  --color-focus: #1d4ed8;
+  --color-warning-bg: #fff4d6;
+  --color-warning-text: #4a3500;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  --step--1: clamp(0.8rem, 0.77rem + 0.15vw, 0.9rem);
+  --step-0: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --step-1: clamp(1.25rem, 1.1rem + 0.75vw, 1.6rem);
+  --step-2: clamp(1.6rem, 1.3rem + 1.5vw, 2.4rem);
+  --step-3: clamp(2rem, 1.5rem + 2.5vw, 3.4rem);
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+
+  --target-min: 1.5rem;
+  --measure: 65ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #121212;
+    --color-surface: #1c1c1c;
+    --color-text: #ececea;
+    --color-muted: #b0b0aa;
+    --color-link: #8ab4ff;
+    --color-primary: #8ab4ff;
+    --color-on-primary: #0b0b0b;
+    --color-border: #3d3d3a;
+    --color-focus: #8ab4ff;
+    --color-warning-bg: #3a2e00;
+    --color-warning-text: #ffe9a8;
+  }
+}

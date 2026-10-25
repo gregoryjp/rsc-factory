@@ -413,6 +413,88 @@ describe("static-landing check script", () => {
 	});
 });
 
+describe("apiweb/web static baseline", () => {
+	const WEB = join(REPO_ROOT, "factory", "templates", "apiweb", "web");
+	const run = (root: string) => {
+		const result = spawnSync(process.execPath, [join(WEB, "scripts", "check-static.mjs"), "--root", root], {
+			encoding: "utf8",
+		});
+		return { code: result.status, out: `${result.stdout}${result.stderr}` };
+	};
+	const shipped = (path: string) => readFileSync(join(WEB, path), "utf8");
+	const files = (overrides: Record<string, string | null> = {}): Record<string, string> => {
+		const paths = [
+			"index.html",
+			"public/tokens.css",
+			"public/base.css",
+			"public/legal/aviso-legal.html",
+			"public/legal/politica-privacidad.html",
+			"public/legal/politica-cookies.html",
+			"src/App.tsx",
+		];
+		const merged: Record<string, string | null> = {
+			...Object.fromEntries(paths.map((path) => [path, shipped(path)])),
+			"src/main.tsx": "export {};",
+			...overrides,
+		};
+		return Object.fromEntries(
+			Object.entries(merged).filter((entry): entry is [string, string] => entry[1] !== null),
+		);
+	};
+
+	it("passes the shipped web template and warns about pending legal markers", () => {
+		const result = run(WEB);
+		expect(result.code).toBe(0);
+		expect(result.out).toContain("WARN");
+	});
+
+	it("keeps the check script and tokens identical to the landing ones", () => {
+		expect(shipped("scripts/check-static.mjs")).toBe(
+			readFileSync(join(STATIC, "scripts", "check.mjs"), "utf8"),
+		);
+		expect(shipped("public/tokens.css")).toBe(readFileSync(join(STATIC, "tokens.css"), "utf8"));
+	});
+
+	it("fails without the CSP meta, with inline scripts or with inline style props", () => {
+		const noCsp = run(tree(files({ "index.html": shipped("index.html").replace(/<meta http-equiv[^>]+>/, "") })));
+		expect(noCsp.code).toBe(1);
+		expect(noCsp.out).toContain("Content-Security-Policy");
+		const inline = run(tree(files({ "index.html": shipped("index.html").replace("</body>", "<script>x()</script></body>") })));
+		expect(inline.out).toContain("inline <script>");
+		const style = run(tree(files({ "src/App.tsx": `${shipped("src/App.tsx")}\nconst x = <p style={{ color: "red" }} />;` })));
+		expect(style.out).toContain("inline style prop");
+	});
+
+	it("fails when legal pages are missing or the app does not link them", () => {
+		const missing = run(tree(files({ "public/legal/politica-cookies.html": null })));
+		expect(missing.out).toContain("legal/politica-cookies.html does not exist");
+		const unlinked = run(tree(files({ "src/App.tsx": shipped("src/App.tsx").replaceAll("legal/aviso-legal.html", "x") })));
+		expect(unlinked.out).toContain("does not link legal/aviso-legal.html");
+	});
+
+	it("validates dist/index.html when a build exists", () => {
+		const built = tree(files({ "dist/index.html": shipped("index.html").replace("</body>", "<script>x()</script></body>") }));
+		expect(run(built).out).toContain("dist/index.html: inline <script>");
+	});
+
+	it("ships the web headers file and documents the baseline for agents", () => {
+		expect(shipped("public/_headers")).toContain("frame-ancestors");
+		const agents = readFileSync(join(WEB, "..", "AGENTS.md"), "utf8");
+		expect(agents).toContain("no inventar datos legales");
+		expect(agents).toContain("Loading");
+		const manifest = readFileSync(join(WEB, "..", "template.json"), "utf8");
+		expect(manifest).toContain("public/legal/aviso-legal.html");
+		expect(readFileSync(join(WEB, "..", "docs", "operations", "security-headers.md"), "utf8")).toContain("Caddy");
+	});
+
+	it("ships Loading, EmptyState and ErrorState with tests", () => {
+		for (const name of ["Loading", "EmptyState", "ErrorState"]) {
+			expect(existsSync(join(WEB, "src", "components", `${name}.tsx`))).toBe(true);
+			expect(existsSync(join(WEB, "src", "components", `${name}.test.tsx`))).toBe(true);
+		}
+	});
+});
+
 describe("template .gitignore", () => {
 	const ignored = (templateDir: string, paths: string[]) => {
 		const repo = tree({ ".gitignore": readFileSync(join(templateDir, ".gitignore"), "utf8") });
