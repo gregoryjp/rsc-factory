@@ -1,6 +1,9 @@
 {
 	"id": "apiweb",
-	"presetIds": ["backend-express-kimmbo", "web-react-vite"],
+	"presetIds": [
+		"backend-express-kimmbo",
+		"web-react-vite"
+	],
 	"render": [
 		"AGENTS.md",
 		"README.md",
@@ -23,10 +26,10 @@
 		"api/ test setup with a guarded test database, per-test truncation and supertest",
 		"web/: React + Vite + TypeScript app shell with CSS Modules, an App component and its test, /api proxy for local dev",
 		"web/ui-routes.json listing routes for browser evidence",
-		"web/index.html with a strict Content-Security-Policy meta (stripped only by the Vite dev server), web/public/_headers and docs/operations/{security-headers.md,Caddyfile.snippet} with the full HTTP security header set",
+		"web/index.html with a strict CSP meta (Vite dev strips it), web/public/_headers and docs/operations/{security-headers.md,Caddyfile.snippet} with the full HTTP security header set",
 		"web/public/tokens.css (color roles with automatic dark mode, spacing, fluid type, radii) and web/public/base.css (focus-visible, 24px targets, reduced motion, skip link) linked from index.html",
 		"web/public/legal/ provisional Spanish legal pages with [PENDIENTE] markers, linked from the App footer",
 		"web/src/components/{Loading,EmptyState,ErrorState}.tsx with accessible roles, CSS Modules and tests",
-		"web/scripts/check-static.mjs run by web npm run check:static after the build: CSP, no inline script/style/handlers, no inline style props, legal pages linked, skip link, WCAG AA token contrast, [PENDIENTE] warning"
+		"web/scripts/check-static.mjs (npm run check:static after build): CSP, no inline script/style, legal pages linked, skip link, AA token contrast, [PENDIENTE] warning"
 	]
 }

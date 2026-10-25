@@ -260,7 +260,9 @@ describe("static-landing check script", () => {
 		...overrides,
 	});
 	const legalDoc = (head: string, body = "") =>
-		doc(head, body).replaceAll('href="tokens.css"', 'href="../tokens.css"').replaceAll('href="legal/', 'href="');
+		doc(head, body)
+			.replaceAll('href="tokens.css"', 'href="../tokens.css"')
+			.replaceAll('href="legal/', 'href="');
 	const page = (extra: string) => doc(extra);
 
 	it("passes the shipped template as is and reports pending legal markers as a warning", () => {
@@ -272,7 +274,9 @@ describe("static-landing check script", () => {
 	it("passes when index.html is valid and local links resolve", () => {
 		const root = tree(
 			base({
-				"index.html": page('<link rel="stylesheet" href="styles.css"><a href="https://example.com">x</a>'),
+				"index.html": page(
+					'<link rel="stylesheet" href="styles.css"><a href="https://example.com">x</a>',
+				),
 			}),
 		);
 		expect(run(root).code).toBe(0);
@@ -280,20 +284,42 @@ describe("static-landing check script", () => {
 
 	it("fails when index.html is missing or a local link is broken", () => {
 		expect(run(tree({ "other.html": "x" })).out).toContain("index.html does not exist");
-		const broken = run(tree(base({ "index.html": page('<link rel="stylesheet" href="missing.css">') })));
+		const broken = run(
+			tree(base({ "index.html": page('<link rel="stylesheet" href="missing.css">') })),
+		);
 		expect(broken.code).toBe(1);
 		expect(broken.out).toContain('"missing.css" does not resolve');
 	});
 
 	it.each([
-		["a missing CSP meta", doc("").replace(/<meta http-equiv[^>]+>/, ""), "Content-Security-Policy"],
-		["an unsafe-inline CSP", doc("").replace("script-src 'self'", "script-src 'self' 'unsafe-inline'"), "unsafe"],
+		[
+			"a missing CSP meta",
+			doc("").replace(/<meta http-equiv[^>]+>/, ""),
+			"Content-Security-Policy",
+		],
+		[
+			"an unsafe-inline CSP",
+			doc("").replace("script-src 'self'", "script-src 'self' 'unsafe-inline'"),
+			"unsafe",
+		],
 		["an inline script", doc("<script>alert(1)</script>"), "inline <script>"],
-		["an inline event handler", doc("", '<button onclick="x()">b</button>'), "inline event handler"],
+		[
+			"an inline event handler",
+			doc("", '<button onclick="x()">b</button>'),
+			"inline event handler",
+		],
 		["an inline style attribute", doc("", '<p style="color:red">b</p>'), "inline style"],
 		["an inline style element", doc("<style>p{}</style>"), "inline <style>"],
-		["target=_blank without rel", doc("", '<a href="https://e.com" target="_blank">x</a>'), "noopener noreferrer"],
-		["target=_blank with only noopener", doc("", '<a href="https://e.com" target="_blank" rel="noopener">x</a>'), "noopener noreferrer"],
+		[
+			"target=_blank without rel",
+			doc("", '<a href="https://e.com" target="_blank">x</a>'),
+			"noopener noreferrer",
+		],
+		[
+			"target=_blank with only noopener",
+			doc("", '<a href="https://e.com" target="_blank" rel="noopener">x</a>'),
+			"noopener noreferrer",
+		],
 		["a mixed-content http resource", doc("", '<img src="http://e.com/a.png" alt="">'), "http://"],
 		["an external script", doc('<script src="https://cdn.e.com/a.js"></script>'), "external"],
 		["an external stylesheet", doc('<link rel="stylesheet" href="//cdn.e.com/a.css">'), "external"],
@@ -324,7 +350,11 @@ describe("static-landing check script", () => {
 	});
 
 	it("counts [PENDIENTE markers as a warning without failing", () => {
-		const root = tree(base({ "legal/aviso-legal.html": legalDoc("", "<p>[PENDIENTE: titular] [PENDIENTE: NIF]</p>") }));
+		const root = tree(
+			base({
+				"legal/aviso-legal.html": legalDoc("", "<p>[PENDIENTE: titular] [PENDIENTE: NIF]</p>"),
+			}),
+		);
 		const result = run(root);
 		expect(result.code).toBe(0);
 		expect(result.out).toContain("WARN");
@@ -338,14 +368,24 @@ describe("static-landing check script", () => {
 		const lightRun = run(tree(base({ "tokens.css": light })));
 		expect(lightRun.code).toBe(1);
 		expect(lightRun.out).toContain("contrast");
-		const dark = TOKENS.replace(/(prefers-color-scheme: dark[\s\S]*?--color-text:\s*)#[0-9a-fA-F]{6}/, "$1#333333");
+		const dark = TOKENS.replace(
+			/(prefers-color-scheme: dark[\s\S]*?--color-text:\s*)#[0-9a-fA-F]{6}/,
+			"$1#333333",
+		);
 		const darkRun = run(tree(base({ "tokens.css": dark })));
 		expect(darkRun.code).toBe(1);
 		expect(darkRun.out).toContain("dark");
 	});
 
 	it("fails when the stylesheets lack dark mode, reduced motion, focus-visible or tokens", () => {
-		const bare = run(tree(base({ "tokens.css": ":root{--color-bg:#ffffff;--color-text:#000000}", "styles.css": "body{}" })));
+		const bare = run(
+			tree(
+				base({
+					"tokens.css": ":root{--color-bg:#ffffff;--color-text:#000000}",
+					"styles.css": "body{}",
+				}),
+			),
+		);
 		expect(bare.code).toBe(1);
 		for (const needle of ["prefers-color-scheme", "prefers-reduced-motion", ":focus-visible"]) {
 			expect(bare.out).toContain(needle);
@@ -416,9 +456,13 @@ describe("static-landing check script", () => {
 describe("apiweb/web static baseline", () => {
 	const WEB = join(REPO_ROOT, "factory", "templates", "apiweb", "web");
 	const run = (root: string) => {
-		const result = spawnSync(process.execPath, [join(WEB, "scripts", "check-static.mjs"), "--root", root], {
-			encoding: "utf8",
-		});
+		const result = spawnSync(
+			process.execPath,
+			[join(WEB, "scripts", "check-static.mjs"), "--root", root],
+			{
+				encoding: "utf8",
+			},
+		);
 		return { code: result.status, out: `${result.stdout}${result.stderr}` };
 	};
 	const shipped = (path: string) => readFileSync(join(WEB, path), "utf8");
@@ -456,24 +500,46 @@ describe("apiweb/web static baseline", () => {
 	});
 
 	it("fails without the CSP meta, with inline scripts or with inline style props", () => {
-		const noCsp = run(tree(files({ "index.html": shipped("index.html").replace(/<meta http-equiv[^>]+>/, "") })));
+		const noCsp = run(
+			tree(files({ "index.html": shipped("index.html").replace(/<meta http-equiv[^>]+>/, "") })),
+		);
 		expect(noCsp.code).toBe(1);
 		expect(noCsp.out).toContain("Content-Security-Policy");
-		const inline = run(tree(files({ "index.html": shipped("index.html").replace("</body>", "<script>x()</script></body>") })));
+		const inline = run(
+			tree(
+				files({
+					"index.html": shipped("index.html").replace("</body>", "<script>x()</script></body>"),
+				}),
+			),
+		);
 		expect(inline.out).toContain("inline <script>");
-		const style = run(tree(files({ "src/App.tsx": `${shipped("src/App.tsx")}\nconst x = <p style={{ color: "red" }} />;` })));
+		const style = run(
+			tree(
+				files({
+					"src/App.tsx": `${shipped("src/App.tsx")}\nconst x = <p style={{ color: "red" }} />;`,
+				}),
+			),
+		);
 		expect(style.out).toContain("inline style prop");
 	});
 
 	it("fails when legal pages are missing or the app does not link them", () => {
 		const missing = run(tree(files({ "public/legal/politica-cookies.html": null })));
 		expect(missing.out).toContain("legal/politica-cookies.html does not exist");
-		const unlinked = run(tree(files({ "src/App.tsx": shipped("src/App.tsx").replaceAll("legal/aviso-legal.html", "x") })));
+		const unlinked = run(
+			tree(
+				files({ "src/App.tsx": shipped("src/App.tsx").replaceAll("legal/aviso-legal.html", "x") }),
+			),
+		);
 		expect(unlinked.out).toContain("does not link legal/aviso-legal.html");
 	});
 
 	it("validates dist/index.html when a build exists", () => {
-		const built = tree(files({ "dist/index.html": shipped("index.html").replace("</body>", "<script>x()</script></body>") }));
+		const built = tree(
+			files({
+				"dist/index.html": shipped("index.html").replace("</body>", "<script>x()</script></body>"),
+			}),
+		);
 		expect(run(built).out).toContain("dist/index.html: inline <script>");
 	});
 
@@ -484,7 +550,9 @@ describe("apiweb/web static baseline", () => {
 		expect(agents).toContain("Loading");
 		const manifest = readFileSync(join(WEB, "..", "template.json"), "utf8");
 		expect(manifest).toContain("public/legal/aviso-legal.html");
-		expect(readFileSync(join(WEB, "..", "docs", "operations", "security-headers.md"), "utf8")).toContain("Caddy");
+		expect(
+			readFileSync(join(WEB, "..", "docs", "operations", "security-headers.md"), "utf8"),
+		).toContain("Caddy");
 	});
 
 	it("ships Loading, EmptyState and ErrorState with tests", () => {

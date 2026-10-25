@@ -14,10 +14,10 @@
 	],
 	"provides": [
 		"index.html at the repository root with doctype, lang, charset, viewport, title, a strict Content-Security-Policy meta, skip link, <main id=\"main\"> landmark and a footer linking the legal pages",
-		"tokens.css (color roles with automatic dark mode, spacing scale, fluid type with clamp(), radii) and styles.css (focus-visible rings, 24px minimum targets, reduced motion), both already linked from index.html",
+		"tokens.css (color roles with automatic dark mode, spacing, fluid type, radii) and styles.css (focus-visible, 24px targets, reduced motion), linked from index.html",
 		"legal/aviso-legal.html, legal/politica-privacidad.html and legal/politica-cookies.html: provisional Spanish drafts with [PENDIENTE] markers, linked from the footer",
 		"_headers and docs/operations/{security-headers.md,Caddyfile.snippet}: full HTTP security header set (CSP with frame-ancestors, HSTS, nosniff, Referrer-Policy, Permissions-Policy)",
-		"scripts/check.mjs validating index.html and legal pages (structure, local links, CSP, no inline script/style/handlers, safe target=_blank, no http:// or external assets), WCAG AA contrast of the token pairs in light and dark, and warning on remaining [PENDIENTE] markers",
+		"scripts/check.mjs validating pages: links, CSP, no inline script/style/handlers, safe target=_blank, no http:// or external assets, AA token contrast; warns on [PENDIENTE] markers",
 		"npm test runs node --test (place tests as test/**/*.test.mjs, node:test + node:assert, no extra dependencies)",
 		"npm run check runs scripts/check.mjs and then the tests",
 		"ui-routes.json at the root with the default [\"/\"]: a JSON array of absolute route paths captured by the browser (keep this exact format)"
