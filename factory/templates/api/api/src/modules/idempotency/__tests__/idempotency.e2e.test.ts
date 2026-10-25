@@ -10,7 +10,8 @@ import { createIdempotencyModule } from "../index.js";
 type HarnessOptions = {
 	ttlMs?: number;
 	now?: () => Date;
-	slowMs?: number;
+	gate?: Promise<void>;
+	onArrive?: () => void;
 	fail?: boolean;
 };
 
@@ -24,9 +25,8 @@ const harness = (options: HarnessOptions = {}) => {
 	});
 	const create: RequestHandler = async (req, res) => {
 		count += 1;
-		if (options.slowMs !== undefined) {
-			await new Promise((resolve) => setTimeout(resolve, options.slowMs));
-		}
+		options.onArrive?.();
+		if (options.gate !== undefined) await options.gate;
 		if (options.fail === true) {
 			res.status(500).json({ error: "boom" });
 			return;
@@ -107,13 +107,22 @@ describe("idempotency", () => {
 	});
 
 	it("answers 409 while the first request with the key is still running", async () => {
-		const h = harness({ slowMs: 300 });
+		let release: () => void = () => {};
+		let arrive: () => void = () => {};
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const arrived = new Promise<void>((resolve) => {
+			arrive = resolve;
+		});
+		const h = harness({ gate, onArrive: arrive });
 		const token = await h.token();
 		const first = h.post(token, "key-12345678", { a: 1 }).then((response) => response);
-		await new Promise((resolve) => setTimeout(resolve, 100));
+		await arrived;
 		const concurrent = await h.post(token, "key-12345678", { a: 1 });
 		expect(concurrent.status).toBe(409);
 		expect(concurrent.body.error.code).toBe("IDEMPOTENCY_IN_PROGRESS");
+		release();
 		expect((await first).status).toBe(201);
 		expect(h.calls()).toBe(1);
 	});
