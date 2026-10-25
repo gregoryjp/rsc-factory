@@ -47,6 +47,7 @@ export type BudgetRepository = {
 		basis: "reported" | "unknown_reservation";
 		now: number;
 	}) => void;
+	providerCalls: (runId: string, provider: string) => number;
 	openReservations: (runId: string) => OpenReservation[];
 	entries: (runId: string) => BudgetEntry[];
 	summary: (runId: string) => BudgetSummary;

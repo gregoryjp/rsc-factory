@@ -314,13 +314,13 @@ const RoleAttemptRow = z
 	);
 
 export const createRoleAttemptRepository = (db: Database.Database): RoleAttemptRepository => ({
-	start: ({ runId, role, repair, model, promptFile, promptHash, tryNumber, now }) => {
+	start: ({ runId, role, repair, model, promptFile, promptHash, tryNumber, provider, now }) => {
 		const row = db
 			.prepare(
-				`INSERT INTO role_attempts (run_id, role, number, repair, model, prompt_file, prompt_hash, outcome, try_number, started_at)
+				`INSERT INTO role_attempts (run_id, role, number, repair, model, prompt_file, prompt_hash, outcome, try_number, provider, started_at)
 				 VALUES (@runId, @role,
 				   (SELECT COUNT(*) + 1 FROM role_attempts WHERE run_id = @runId AND role = @role),
-				   @repair, @model, @promptFile, @promptHash, 'running', @tryNumber, @now)
+				   @repair, @model, @promptFile, @promptHash, 'running', @tryNumber, @provider, @now)
 				 RETURNING id`,
 			)
 			.get({
@@ -331,6 +331,7 @@ export const createRoleAttemptRepository = (db: Database.Database): RoleAttemptR
 				promptFile,
 				promptHash,
 				tryNumber: tryNumber ?? 1,
+				provider: provider ?? "claude",
 				now,
 			});
 		return z.object({ id: z.number() }).parse(row).id;

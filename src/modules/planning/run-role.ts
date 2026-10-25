@@ -1,14 +1,18 @@
 import { toJSONSchema, type z } from "zod";
-import { type Role, RolesConfigSchema } from "../../contracts/planning.js";
+import type { Effort, ProviderName, Role } from "../../contracts/planning.js";
 import type { GateFailure } from "../../domain/planning/gates.js";
-import type { ProviderFailure } from "../../infrastructure/providers/provider-port.js";
+import type {
+	ProviderFailure,
+	ProviderRequest,
+} from "../../infrastructure/providers/provider-port.js";
 import { sha256Of } from "../../shared/hash.js";
 import { err, fail, ok, type Result } from "../../shared/result.js";
 import { guardedInvoke, type Halt } from "../budget/guarded-invoke.js";
 import { type PlanDeps, type PlanError, providerModeOf } from "./deps.js";
 import { repairPrompt } from "./prompts.js";
+import { loadRolesConfig, ROLES_CONFIG_PATH } from "./roles-config.js";
 
-export const ROLES_CONFIG_PATH = "factory/config/roles.json";
+export { ROLES_CONFIG_PATH };
 export const COMMON_PROMPT_PATH = "factory/prompts/_common.md";
 export const promptPath = (role: Role): string => `factory/prompts/${role}.md`;
 
@@ -18,11 +22,13 @@ export type RoleAssets = {
 	systemPrompt: string;
 	promptFile: string;
 	promptHash: string;
+	provider: ProviderName;
 	model: string;
+	effort?: Effort;
 };
 
 export const loadRoleAssets = (
-	deps: PlanDeps,
+	deps: Pick<PlanDeps, "factoryFiles">,
 	role: Role,
 	file: string = promptPath(role),
 ): Result<RoleAssets, PlanError> => {
@@ -30,26 +36,26 @@ export const loadRoleAssets = (
 	if (!common.ok) return fail("role_assets_unavailable", common.error.message);
 	const specific = deps.factoryFiles.read(file);
 	if (!specific.ok) return fail("role_assets_unavailable", specific.error.message);
-	const config = deps.factoryFiles.read(ROLES_CONFIG_PATH);
-	if (!config.ok) return fail("role_assets_unavailable", config.error.message);
-	const parsed = (() => {
-		try {
-			return RolesConfigSchema.safeParse(JSON.parse(config.value.content));
-		} catch {
-			return undefined;
-		}
-	})();
-	if (!parsed?.success) {
-		return fail("role_assets_unavailable", `${ROLES_CONFIG_PATH} is not a valid roles config`);
-	}
+	const roles = loadRolesConfig(deps.factoryFiles);
+	if (!roles.ok) return roles;
 	const systemPrompt = `${common.value.content.trim()}\n\n${specific.value.content.trim()}`;
 	return ok({
 		systemPrompt,
 		promptFile: file,
 		promptHash: sha256Of(systemPrompt),
-		model: parsed.data[role],
+		provider: roles.value[role].provider,
+		model: roles.value[role].model,
+		...(roles.value[role].effort === undefined ? {} : { effort: roles.value[role].effort }),
 	});
 };
+
+export const providerRouting = (
+	assets: Pick<RoleAssets, "provider" | "model" | "effort">,
+): Pick<ProviderRequest, "provider" | "model" | "effort"> => ({
+	provider: assets.provider,
+	model: assets.model,
+	...(assets.effort === undefined ? {} : { effort: assets.effort }),
+});
 
 export const claimProviderMode = (deps: PlanDeps, runId: string): Result<void, PlanError> => {
 	const mode = providerModeOf(deps);
@@ -132,7 +138,7 @@ export const callRole = async <Raw, Value>(
 					prompt: repair ? repairPrompt(input.prompt, feedback) : input.prompt,
 					systemPrompt: assets.value.systemPrompt,
 					jsonSchema,
-					model: assets.value.model,
+					...providerRouting(assets.value),
 					tools: input.profile?.tools ?? [],
 					cwd: input.cwd,
 					timeoutMs: ROLE_CALL_LIMITS.timeoutMs,

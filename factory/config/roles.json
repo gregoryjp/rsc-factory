@@ -1,13 +1,13 @@
 {
-	"spec-writer": "sonnet",
-	"architect": "sonnet",
-	"planner": "sonnet",
-	"builder": "sonnet",
-	"reviewer-security": "sonnet",
-	"reviewer-code": "sonnet",
-	"reviewer-ux": "sonnet",
-	"reviewer-ui": "sonnet",
-	"reviewer-legal": "sonnet",
-	"review-refuter": "sonnet",
-	"approver": "sonnet"
+	"spec-writer": { "provider": "claude", "model": "opus" },
+	"architect": { "provider": "claude", "model": "opus" },
+	"planner": { "provider": "claude", "model": "opus" },
+	"builder": { "provider": "claude", "model": "sonnet" },
+	"reviewer-security": { "provider": "claude", "model": "sonnet" },
+	"reviewer-code": { "provider": "claude", "model": "sonnet" },
+	"reviewer-ux": { "provider": "codex", "model": "gpt-6-astra", "effort": "medium" },
+	"reviewer-ui": { "provider": "codex", "model": "gpt-6-astra", "effort": "medium" },
+	"reviewer-legal": { "provider": "claude", "model": "sonnet" },
+	"review-refuter": { "provider": "claude", "model": "sonnet" },
+	"approver": { "provider": "claude", "model": "opus" }
 }

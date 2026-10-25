@@ -1,8 +1,20 @@
 import type { z } from "zod";
 import type { Result } from "../../shared/result.js";
 
+export type ProviderName = "claude" | "codex";
+export type ProviderEffort = "low" | "medium" | "high" | "xhigh";
+
+export type TokenUsage = {
+	inputTokens: number;
+	cachedInputTokens: number;
+	outputTokens: number;
+	reasoningOutputTokens: number;
+};
+
 export type ProviderRequest = {
 	role?: string;
+	provider?: ProviderName;
+	effort?: ProviderEffort;
 	prompt: string;
 	systemPrompt: string;
 	jsonSchema: Record<string, unknown>;
@@ -16,7 +28,12 @@ export type ProviderRequest = {
 	signal?: AbortSignal;
 };
 
-export type ProviderSuccess<T> = { output: T; costUsd: number | null; models: string[] };
+export type ProviderSuccess<T> = {
+	output: T;
+	costUsd: number | null;
+	models: string[];
+	usage?: TokenUsage;
+};
 
 export type ProviderFailureKind =
 	| "timeout"

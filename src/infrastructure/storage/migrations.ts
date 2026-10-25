@@ -314,4 +314,11 @@ CREATE INDEX idx_budget_entries_run ON budget_entries(run_id, kind);
 CREATE INDEX idx_budget_entries_reservation ON budget_entries(reservation_id);
 `,
 	},
+	{
+		version: 8,
+		name: "role_attempt_provider",
+		sql: `
+ALTER TABLE role_attempts ADD COLUMN provider TEXT NOT NULL DEFAULT 'claude';
+`,
+	},
 ];

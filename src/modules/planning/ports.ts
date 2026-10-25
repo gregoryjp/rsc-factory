@@ -80,6 +80,7 @@ export type RoleAttemptRepository = {
 		promptFile: string;
 		promptHash: string;
 		tryNumber?: number;
+		provider?: string;
 		now: number;
 	}) => number;
 	finish: (

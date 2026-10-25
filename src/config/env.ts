@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -11,6 +12,8 @@ export type Config = {
 	factoryHome: string;
 	dbFile: string;
 	claudeBin: string;
+	codexBin: string;
+	codexHome: string;
 	repoRoot: string;
 	provider: ProviderConfig;
 	contextPackMaxBytes: number;
@@ -40,6 +43,8 @@ const EnvSchema = z
 	.object({
 		FACTORY_HOME: z.string().min(1).optional(),
 		FACTORY_CLAUDE_BIN: z.string().min(1).default("claude"),
+		FACTORY_CODEX_BIN: z.string().min(1).default("codex"),
+		FACTORY_CODEX_HOME: z.string().min(1).optional(),
 		FACTORY_PROVIDER: z.enum(["claude", "fake"]).default("claude"),
 		FACTORY_FAKE_FIXTURES: z.string().min(1).optional(),
 		FACTORY_RUNNER: z.enum(["docker", "host"]).optional(),
@@ -79,6 +84,8 @@ export const loadConfig = (
 	const parsed = EnvSchema.safeParse({
 		FACTORY_HOME: source.FACTORY_HOME,
 		FACTORY_CLAUDE_BIN: source.FACTORY_CLAUDE_BIN,
+		FACTORY_CODEX_BIN: source.FACTORY_CODEX_BIN,
+		FACTORY_CODEX_HOME: source.FACTORY_CODEX_HOME,
 		FACTORY_PROVIDER: source.FACTORY_PROVIDER,
 		FACTORY_FAKE_FIXTURES: source.FACTORY_FAKE_FIXTURES,
 		FACTORY_RUNNER: source.FACTORY_RUNNER,
@@ -92,6 +99,8 @@ export const loadConfig = (
 		factoryHome,
 		dbFile: join(factoryHome, "factory.db"),
 		claudeBin: parsed.data.FACTORY_CLAUDE_BIN,
+		codexBin: parsed.data.FACTORY_CODEX_BIN,
+		codexHome: parsed.data.FACTORY_CODEX_HOME ?? join(homedir(), ".codex"),
 		repoRoot,
 		provider:
 			parsed.data.FACTORY_PROVIDER === "fake" && parsed.data.FACTORY_FAKE_FIXTURES !== undefined

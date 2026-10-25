@@ -186,9 +186,9 @@ describe("planning happy path with the demo PRD", () => {
 		unwrap(await planRun(env, { runId: run.id }));
 		const attempts = env.storage.roleAttempts.list(run.id);
 		expect(attempts.map((a) => [a.role, a.outcome, a.repair, a.model, a.costUsd])).toEqual([
-			["spec-writer", "accepted", false, "sonnet", 0],
-			["architect", "accepted", false, "sonnet", 0],
-			["planner", "accepted", false, "sonnet", 0],
+			["spec-writer", "accepted", false, "opus", 0],
+			["architect", "accepted", false, "opus", 0],
+			["planner", "accepted", false, "opus", 0],
 		]);
 		attempts.forEach((a, i) => {
 			expect(a.promptHash).toBe(sha256Of(provider.calls[i]?.systemPrompt ?? ""));
@@ -502,17 +502,17 @@ describe("role assets", () => {
 								ok: true as const,
 								value: {
 									content: JSON.stringify({
-										"spec-writer": "opus",
-										architect: "haiku",
-										planner: "sonnet",
-										builder: "sonnet",
-										"reviewer-security": "sonnet",
-										"reviewer-code": "sonnet",
-										"reviewer-ux": "sonnet",
-										"reviewer-ui": "sonnet",
-										"reviewer-legal": "sonnet",
-										"review-refuter": "sonnet",
-										approver: "sonnet",
+										"spec-writer": { provider: "claude", model: "opus" },
+										architect: { provider: "claude", model: "haiku" },
+										planner: { provider: "claude", model: "sonnet" },
+										builder: { provider: "claude", model: "sonnet" },
+										"reviewer-security": { provider: "claude", model: "sonnet" },
+										"reviewer-code": { provider: "claude", model: "sonnet" },
+										"reviewer-ux": { provider: "claude", model: "sonnet" },
+										"reviewer-ui": { provider: "claude", model: "sonnet" },
+										"reviewer-legal": { provider: "claude", model: "sonnet" },
+										"review-refuter": { provider: "claude", model: "sonnet" },
+										approver: { provider: "claude", model: "sonnet" },
 									}),
 									sha256: "x",
 								},

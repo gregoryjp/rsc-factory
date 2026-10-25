@@ -50,13 +50,27 @@ export const guardedInvoke = async <T>(
 	if (!config.ok) {
 		return { halted: { kind: "budget_config_invalid", message: config.error.message } };
 	}
-	const { retry, maxCallUsd } = config.value;
-	const ceiling = maxCallUsd[input.role];
+	const { retry, maxCallUsd, maxCodexCallsPerRun } = config.value;
+	const provider = input.request.provider ?? "claude";
+	const ceiling = provider === "codex" ? 0 : maxCallUsd[input.role];
 	let timeoutsRetried = 0;
 
 	for (let tryNumber = 1; ; tryNumber += 1) {
 		if (isRunCanceled(deps, input.runId)) {
 			return { halted: { kind: "run_canceled", message: "The run was canceled" } };
+		}
+		if (
+			provider === "codex" &&
+			storage.budgets.providerCalls(input.runId, "codex") >= maxCodexCallsPerRun
+		) {
+			return {
+				halted: {
+					kind: "budget_exhausted",
+					message: `Codex call cap reached: ${maxCodexCallsPerRun} calls in this run; raise maxCodexCallsPerRun in factory/config/budget.json, then add budget with \`factory budget <runId> --add 0.01\` to resume`,
+					needUsd: 0,
+					remainingUsd: storage.budgets.summary(input.runId).remainingUsd,
+				},
+			};
 		}
 		const reservation = storage.budgets.reserve({
 			runId: input.runId,
@@ -82,6 +96,7 @@ export const guardedInvoke = async <T>(
 			promptFile: input.promptFile,
 			promptHash: input.promptHash,
 			tryNumber,
+			provider,
 			now: clock.now(),
 		});
 		storage.budgets.attach(reservation.value, attemptId);
@@ -96,6 +111,8 @@ export const guardedInvoke = async <T>(
 				model: input.model,
 				promptHash: input.promptHash,
 				provider: deps.settings.providerKind,
+				roleProvider: provider,
+				...(input.request.effort === undefined ? {} : { effort: input.request.effort }),
 				reservedUsd: ceiling,
 				...input.eventExtras,
 			},
@@ -116,7 +133,23 @@ export const guardedInvoke = async <T>(
 			basis: cost === null ? "unknown_reservation" : "reported",
 			now: clock.now(),
 		});
-		if (result.ok) return { attempt: { attemptId, result } };
+		if (result.ok) {
+			if (result.value.usage !== undefined) {
+				storage.events.append({
+					runId: input.runId,
+					type: "provider.usage",
+					payload: {
+						role: input.role,
+						attemptId,
+						provider,
+						model: input.model,
+						...result.value.usage,
+					},
+					now: clock.now(),
+				});
+			}
+			return { attempt: { attemptId, result } };
+		}
 
 		const failure = result.error;
 		const retryable =

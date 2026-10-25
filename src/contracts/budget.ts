@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { RoleSchema } from "./planning.js";
 
+export const DEFAULT_MAX_CODEX_CALLS_PER_RUN = 12;
+
 const PositiveUsd = z.number().positive().finite();
 
 export const BudgetConfigSchema = z.strictObject({
@@ -11,6 +13,7 @@ export const BudgetConfigSchema = z.strictObject({
 			typeof PositiveUsd
 		>,
 	),
+	maxCodexCallsPerRun: z.number().int().positive().default(DEFAULT_MAX_CODEX_CALLS_PER_RUN),
 	retry: z.strictObject({
 		maxAttempts: z.number().int().min(1).max(10),
 		baseMs: z.number().int().positive(),
@@ -36,6 +39,7 @@ export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
 		"review-refuter": 0.5,
 		approver: 0.2,
 	},
+	maxCodexCallsPerRun: DEFAULT_MAX_CODEX_CALLS_PER_RUN,
 	retry: { maxAttempts: 3, baseMs: 2000, capMs: 60_000 },
 };
 

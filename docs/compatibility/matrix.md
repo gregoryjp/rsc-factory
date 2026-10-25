@@ -11,6 +11,7 @@ Fecha de verificación: 2026-10-24. Máquina: Linux 6.8.0, x86_64. Todo lo marca
 | Git | 2.34.1 | Verificado | Worktrees por tarea (soporta `git worktree`) |
 | Docker | 29.2.1 | Instalado, no probado aún | Aislamiento de ejecución (H3) |
 | Claude Code CLI | 2.1.258 | Verificado con llamada real | Adaptador de proveedor |
+| Codex CLI | 0.154.0 | Verificado con 1 llamada real (`gpt-6-astra`, `medium`, sandbox `read-only`) y 1 rechazo real de modelo | Segundo proveedor (ADR 0017); revisores UX/UI |
 | Playwright (imagen oficial) | 1.64.1 | Verificado con captura real (H4b) | Evidencia de navegador para UX/UI; no se instala en el host, ver «Imágenes» |
 | `playwright-core` / `axe-core` | 1.64.1 / 4.14.0 | Verificado (`npm view`, lockfile en `factory/preview/`) | Script de captura del motor; versión de Playwright igual a la etiqueta de la imagen |
 | `ANTHROPIC_API_KEY` | — | **No definida** | Auth actual: OAuth del CLI |
@@ -101,3 +102,16 @@ Las constantes viven en `src/config/compatibility.ts` (`NODE_IMAGE`, `POSTGRES_I
 - Detección de usuario del contenedor: Docker Desktop, `name=rootless` o `name=userns` en `SecurityOptions` → `--user 0:0`. Solo Docker Desktop está verificado en ejecución real; rootless/userns en motor nativo **no está verificado**.
 - Riesgo aceptado: la red del run no es interna (necesaria para `npm ci` y para que Prisma descargue sus motores), el código del producto tiene salida a Internet y conoce la contraseña aleatoria del Postgres efímero de ese run.
 - Un `docker kill` fallido tras un timeout se registra (`killError` en el log y en el evento `check.recorded`).
+
+## H7 — Codex CLI como segundo proveedor (verificado 2026-10-25)
+
+Evidencia: `test/fixtures/codex/real_codex_ok.jsonl` y `real_codex_model_not_found.jsonl` (salida real de `codex exec --json`).
+
+- Flags verificados en `codex exec --help` (0.154.0): `--json`, `--ephemeral`, `--ignore-user-config`, `--ignore-rules`, `--skip-git-repo-check`, `--output-schema FILE`, `-m`, `-c clave=valor`, `-s read-only|workspace-write`, `-C DIR`, `--disable <feature>`, prompt por stdin con `-`.
+- Flujo de eventos real: `thread.started`, `turn.started`, `item.completed` (`agent_message` con el JSON final en `text`), `turn.completed` con `usage` (`input_tokens`, `cached_input_tokens`, `cache_write_input_tokens`, `output_tokens`, `reasoning_output_tokens`). Error de modelo: evento `error` + `turn.failed`, exit 1, mensaje JSON con `error.code = model_not_found`.
+- Una llamada mínima (`{"ok":true}`) consume ~13,6k tokens de entrada: es el prompt de sistema propio de Codex, no se puede quitar.
+- `--ignore-user-config` no carga `$CODEX_HOME/config.toml` (MCP, hooks, `model_instructions_file` de engram), pero la autenticación sigue saliendo de `CODEX_HOME`. Por eso cada llamada usa un `CODEX_HOME` temporal propio que solo contiene una copia de `auth.json`.
+- Sin `--system-prompt`: el prompt de rol se antepone al prompt por stdin.
+- El sandbox `read-only` de Codex **permite leer todo el sistema de archivos** del usuario (comprobado con `codex sandbox`: lee `~/.codex/config.toml` y lista `~/.ssh`); solo impide escribir y usar red desde los comandos. Ver riesgos en el ADR 0017.
+- Modelos: `gpt-6-astra` y `gpt-6.1-sol` aparecen en `~/.codex/models_cache.json` (`gpt-6-astra` aceptado en la llamada real). Un modelo inexistente devuelve `model_not_found` (cubierto por fixture real).
+- Cuota/uso: Codex con ChatGPT Pro no informa USD. El texto exacto del error de límite de uso **no se capturó** (no se agotó la cuota): el clasificador se probó con mensajes sintéticos (`usage_limit_reached`, `resets_at`, `resets_in_seconds`, «try again in…/at…»).

@@ -1,6 +1,8 @@
 import { accessSync, constants, mkdirSync } from "node:fs";
 import { MIN_NODE_MAJOR, PLAYWRIGHT_IMAGE } from "../../config/compatibility.js";
 import type { ProviderConfig, RunnerPreference } from "../../config/env.js";
+import type { RolesConfig } from "../../contracts/planning.js";
+import { independenceWarnings } from "../../domain/planning/roles.js";
 import type { Failure, Result } from "../../shared/result.js";
 
 export type CommandRunner = (
@@ -18,6 +20,10 @@ export type DoctorDeps = {
 	nodeVersion: string;
 	factoryHome: string;
 	expectedClaudeVersion: string;
+	expectedCodexVersion: string;
+	codexBin?: string;
+	roles: Result<RolesConfig, Failure<string>>;
+	codexModels: Result<string[], Failure<string>>;
 	provider: ProviderConfig;
 	runnerPreference: RunnerPreference;
 	checkMigrations: () => Result<number[], Failure<string>>;
@@ -66,6 +72,59 @@ const checkClaude = async (deps: DoctorDeps): Promise<DoctorCheck> => {
 				"warn",
 				`Claude Code ${found.version}; compatibility matrix verified ${deps.expectedClaudeVersion}`,
 			);
+};
+
+const codexRoles = (deps: DoctorDeps): [string, string][] =>
+	deps.roles.ok
+		? Object.entries(deps.roles.value).flatMap(([role, config]) =>
+				config.provider === "codex" ? [[role, config.model] as [string, string]] : [],
+			)
+		: [];
+
+const checkCodex = async (deps: DoctorDeps): Promise<DoctorCheck> => {
+	if (codexRoles(deps).length === 0) return check("codex", "ok", "not used by any role");
+	const found = await probe(deps, deps.codexBin ?? "codex", ["--version"]);
+	if (!found.found) {
+		return check("codex", "warn", `${found.reason}; roles configured for codex will fail`);
+	}
+	return found.version === deps.expectedCodexVersion
+		? check("codex", "ok", `Codex CLI ${found.version}`)
+		: check(
+				"codex",
+				"warn",
+				`Codex CLI ${found.version}; compatibility matrix verified ${deps.expectedCodexVersion}`,
+			);
+};
+
+const checkCodexModels = (deps: DoctorDeps): DoctorCheck => {
+	const used = codexRoles(deps);
+	if (used.length === 0) return check("codex-models", "ok", "not used by any role");
+	if (!deps.codexModels.ok) {
+		return check(
+			"codex-models",
+			"warn",
+			`could not verify codex models: ${deps.codexModels.error.message}`,
+		);
+	}
+	const known = deps.codexModels.value;
+	const missing = [...new Set(used.map(([, model]) => model))].filter((m) => !known.includes(m));
+	return missing.length === 0
+		? check("codex-models", "ok", "configured codex models are in models_cache.json")
+		: check("codex-models", "warn", `not in models_cache.json: ${missing.join(", ")}`);
+};
+
+const checkRoleIndependence = (deps: DoctorDeps): DoctorCheck => {
+	if (!deps.roles.ok) {
+		return check(
+			"role-independence",
+			"warn",
+			`roles config unavailable: ${deps.roles.error.message}`,
+		);
+	}
+	const warnings = independenceWarnings(deps.roles.value);
+	return warnings.length === 0
+		? check("role-independence", "ok", "every reviewer differs from the builder")
+		: check("role-independence", "warn", warnings.join("; "));
 };
 
 const checkOptional = async (
@@ -159,6 +218,9 @@ export const runDoctor = async (deps: DoctorDeps): Promise<DoctorReport> => {
 		checkNode(deps),
 		await checkGit(deps),
 		await checkClaude(deps),
+		await checkCodex(deps),
+		checkCodexModels(deps),
+		checkRoleIndependence(deps),
 		checkProvider(deps),
 		await checkOptional(deps, "docker", "docker", "Docker is needed for isolation from H3"),
 		await checkPlaywrightImage(deps),

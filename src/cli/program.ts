@@ -1,9 +1,10 @@
 import { resolve } from "node:path";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
-import { EXPECTED_CLAUDE_VERSION } from "../config/compatibility.js";
+import { EXPECTED_CLAUDE_VERSION, EXPECTED_CODEX_VERSION } from "../config/compatibility.js";
 import type { Config } from "../config/env.js";
 import { DeliveryTargetSchema } from "../contracts/states.js";
 import { renderReportJson, renderReportMarkdown } from "../domain/report/render.js";
+import { readCodexModelSlugs } from "../infrastructure/fs/codex-models.js";
 import { createFsFactoryFiles } from "../infrastructure/fs/factory-files.js";
 import { execCommand } from "../infrastructure/process.js";
 import { MIGRATIONS } from "../infrastructure/storage/migrations.js";
@@ -22,6 +23,7 @@ import {
 } from "../modules/execution/build-run.js";
 import { retryTask } from "../modules/execution/retry-task.js";
 import { planRun } from "../modules/planning/plan-run.js";
+import { loadRolesConfig } from "../modules/planning/roles-config.js";
 import { addBudget } from "../modules/runs/add-budget.js";
 import { cancelRun } from "../modules/runs/cancel-run.js";
 import { getRunStatus } from "../modules/runs/get-run-status.js";
@@ -115,6 +117,10 @@ export const runCli = async (
 				nodeVersion: process.versions.node,
 				factoryHome: config.factoryHome,
 				expectedClaudeVersion: EXPECTED_CLAUDE_VERSION,
+				expectedCodexVersion: EXPECTED_CODEX_VERSION,
+				codexBin: config.codexBin,
+				roles: loadRolesConfig(createFsFactoryFiles({ repoRoot: config.repoRoot })),
+				codexModels: readCodexModelSlugs(config.codexHome),
 				provider: config.provider,
 				runnerPreference: config.runnerPreference,
 				expectedMigrations: MIGRATIONS.map((m) => m.version),
@@ -267,6 +273,7 @@ export const runCli = async (
 							? `Run ${summary.runId} already planned (${summary.state}); no provider calls`
 							: `Planned run ${summary.runId} (${summary.state}): ran ${summary.ran.join(", ") || "none"}; skipped ${summary.skipped.join(", ") || "none"}`,
 						`Provider calls: ${summary.providerCalls}; tasks: ${summary.taskCount} (${summary.blockedTaskCount} blocked)`,
+						...summary.roleWarnings.map((warning) => `WARNING: ${warning}`),
 						...(summary.state === "BLOCKED"
 							? ["Run is BLOCKED; see `factory status` for the cause."]
 							: []),

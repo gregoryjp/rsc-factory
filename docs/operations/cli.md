@@ -17,6 +17,8 @@ Dentro de este repositorio el comando se ejecuta como `npm run factory -- <coman
 |---|---|---|
 | `FACTORY_HOME` | `<cwd>/.factory` | Base de datos (`factory.db`) y copias inmutables de PRD en `runs/<runId>/input/prd.md` |
 | `FACTORY_CLAUDE_BIN` | `claude` | Ejecutable del proveedor Claude (lo usa `plan`) |
+| `FACTORY_CODEX_BIN` | `codex` | Ejecutable del proveedor Codex (revisores UX/UI por defecto) |
+| `FACTORY_CODEX_HOME` | `~/.codex` | De aquí se copia solo `auth.json` a un `CODEX_HOME` temporal por llamada; también se lee `models_cache.json` en `doctor` |
 | `FACTORY_PROVIDER` | `claude` | `claude` (real) o `fake` (solo pruebas; ver abajo) |
 | `FACTORY_FAKE_FIXTURES` | — | Directorio con `spec-writer.json`, `architect.json`, `planner.json` (y, opcionales, `builder.json`, `reviewer-security.json`, `reviewer-code.json`, `reviewer-ux.json`, `reviewer-ui.json`, `reviewer-legal.json`, `review-refuter.json` y `approver.json`); obligatorio si `FACTORY_PROVIDER=fake` |
 | `FACTORY_CONTEXT_PACK_MAX_BYTES` | `61440` | Límite del ContextPack por tarea |
@@ -30,7 +32,7 @@ La configuración se valida con Zod en `src/config/env.ts`; es el único módulo
 
 | Comando | Efecto |
 |---|---|
-| `factory doctor` | Comprueba Node, git, `claude --version` contra la matriz (aviso si difiere), Docker y Playwright (aviso si faltan), escritura en `FACTORY_HOME` y migraciones aplicadas |
+| `factory doctor` | Comprueba Node, git, `claude --version` contra la matriz (aviso si difiere), `codex --version` y que los modelos de `roles.json` con proveedor `codex` existan en `models_cache.json` (solo avisos, nunca fallo), la independencia revisor/builder (aviso), Docker y Playwright (aviso si faltan), escritura en `FACTORY_HOME` y migraciones aplicadas |
 | `factory start --prd <ruta> --target <dir> [--project <nombre>] [--new] [--budget-usd <n>] [--delivery local\|production] [--json]` | Valida el PRD, calcula sha256, guarda una copia de solo lectura, valida el destino y crea el run en `CREATED`. Si ya hay un run no terminal del mismo proyecto con el mismo hash, lo reutiliza y lo indica (si `--delivery` difiere falla con `delivery_mismatch`; si `--target` difiere, con `target_mismatch`); `--new` fuerza uno nuevo. `--budget-usd` fija el presupuesto del run (por defecto `defaultRunBudgetUsd` de `factory/config/budget.json`, 15) |
 | `factory plan <runId> [--force] [--json]` | Lleva el run `CREATED → INGESTING → SPECIFYING → PLANNING` y siembra el DAG de tareas. Idempotente y reanudable: salta las fases con artefacto verificado por hash y no vuelve a llamar al proveedor. Salida con código 1 si el run queda `BLOCKED` |
 | `factory status <runId> [--json]` | (H5: presupuesto del run — total, cargado informado, cargado desconocido, reservado, restante —, llamadas por rol, reintentos y, si aplica, la espera de cuota `waitUntil`; también en `--json` como `budget` y `quotaWait`.) (H4a: por tarea revisada muestra veredicto por área, hallazgos críticos/altos abiertos, refutados y menores, y la ruta del artefacto `blocked-diff` de las tareas bloqueadas.) Estado del run, versión de spec, nº de requisitos, supuestos y contradicciones (críticas marcadas), presets, tareas por estado (con las bloqueadas y su causa), últimos 10 eventos y siguiente paso |
@@ -160,3 +162,12 @@ Para analizar un repositorio existente sin tocarlo: `npm run factory -- audit --
 ## Límites de H2
 
 `plan` se verificó solo con el proveedor falso; no hay ejecución real contra Claude en H2. No hay ejecución de tareas (H3). El re-plan completo tras `recordSpecChange` no existe: solo se registra la v2 y se listan las tareas impactadas. Un run `BLOCKED` por reparación agotada o por contradicciones no tiene comando de desbloqueo: se corrige el PRD y se crea otro run con `--new`.
+
+## Proveedor y modelo por rol (ADR 0017)
+
+`factory/config/roles.json` asigna a cada rol `{ "provider": "claude" | "codex", "model": "...", "effort"?: "low" | "medium" | "high" | "xhigh" }`. `effort` solo se admite con `codex` (se pasa como `-c model_reasoning_effort`). Valores por defecto: `spec-writer`, `architect`, `planner` y `approver` en `claude`/`opus`; `builder`, `reviewer-security`, `reviewer-code`, `reviewer-legal` y `review-refuter` en `claude`/`sonnet`; `reviewer-ux` y `reviewer-ui` en `codex`/`gpt-6-astra` con `effort` `medium`.
+
+- `FACTORY_PROVIDER=fake` sustituye a todos los proveedores y a la elección por rol.
+- Las llamadas a Codex se reservan y se cargan a **0 USD** en el ledger (ChatGPT Pro no informa coste); los tokens quedan en eventos `provider.usage`. `factory/config/budget.json` admite `maxCodexCallsPerRun` (por defecto 12, contando reintentos): al alcanzarlo el run queda `BLOCKED` con causa `budget_exhausted`; sube el valor y ejecuta `factory budget <runId> --add 0.01`.
+- Un límite de uso de Codex se trata como `quota_wait` (con la hora de reinicio si el mensaje la trae).
+- `factory plan` y `factory doctor` avisan (sin bloquear) cuando un revisor usa el mismo proveedor y modelo que el builder; los valores por defecto avisan para `reviewer-security`, `reviewer-code` y `reviewer-legal`.

@@ -45,7 +45,7 @@ describe("budget config", () => {
 
 describe("budget ledger (migration 7)", () => {
 	it("applies migration 7 and gives new runs the requested or default budget", () => {
-		expect(seed().env.storage.appliedMigrations()).toEqual([1, 2, 3, 4, 5, 6, 7]);
+		expect(seed().env.storage.appliedMigrations()).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
 		const a = seed();
 		expect(a.env.storage.budgets.limit(a.runId)).toBe(15);
 		const b = seed(4.5);

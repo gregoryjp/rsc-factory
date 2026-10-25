@@ -13,5 +13,6 @@
 		"review-refuter": 0.5,
 		"approver": 0.2
 	},
+	"maxCodexCallsPerRun": 12,
 	"retry": { "maxAttempts": 3, "baseMs": 2000, "capMs": 60000 }
 }

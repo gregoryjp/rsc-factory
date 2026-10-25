@@ -97,18 +97,36 @@ export const RoleSchema = z.enum([
 ]);
 export type Role = z.infer<typeof RoleSchema>;
 
+export const ProviderNameSchema = z.enum(["claude", "codex"]);
+export type ProviderName = z.infer<typeof ProviderNameSchema>;
+
+export const EffortSchema = z.enum(["low", "medium", "high", "xhigh"]);
+export type Effort = z.infer<typeof EffortSchema>;
+
+export const RoleConfigSchema = z
+	.strictObject({
+		provider: ProviderNameSchema,
+		model: NonEmpty,
+		effort: EffortSchema.optional(),
+	})
+	.refine((value) => value.effort === undefined || value.provider === "codex", {
+		message: "effort is only supported for the codex provider",
+		path: ["effort"],
+	});
+export type RoleConfig = z.infer<typeof RoleConfigSchema>;
+
 export const RolesConfigSchema = z.strictObject({
-	"spec-writer": NonEmpty,
-	architect: NonEmpty,
-	planner: NonEmpty,
-	builder: NonEmpty,
-	"reviewer-security": NonEmpty,
-	"reviewer-code": NonEmpty,
-	"reviewer-ux": NonEmpty,
-	"reviewer-ui": NonEmpty,
-	"reviewer-legal": NonEmpty,
-	"review-refuter": NonEmpty,
-	approver: NonEmpty,
+	"spec-writer": RoleConfigSchema,
+	architect: RoleConfigSchema,
+	planner: RoleConfigSchema,
+	builder: RoleConfigSchema,
+	"reviewer-security": RoleConfigSchema,
+	"reviewer-code": RoleConfigSchema,
+	"reviewer-ux": RoleConfigSchema,
+	"reviewer-ui": RoleConfigSchema,
+	"reviewer-legal": RoleConfigSchema,
+	"review-refuter": RoleConfigSchema,
+	approver: RoleConfigSchema,
 });
 export type RolesConfig = z.infer<typeof RolesConfigSchema>;
 

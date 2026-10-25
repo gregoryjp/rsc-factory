@@ -141,7 +141,9 @@ describe("UX and UI reviewers in the build loop", () => {
 				restricted: true,
 				permissionMode: "dontAsk",
 				tools: ["Read", "Glob", "Grep"],
-				model: "sonnet",
+				provider: "codex",
+				model: "gpt-6-astra",
+				effort: "medium",
 			});
 			expect(call.prompt).toMatch(/BEGIN_UI_EVIDENCE_[0-9a-f]+/);
 			expect(call.prompt).toContain("under ui-evidence/");

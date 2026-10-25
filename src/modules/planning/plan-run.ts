@@ -17,6 +17,7 @@ import { validateArchitecture, validatePlan, validateSpec } from "../../domain/p
 import { renderDecisionMarkdown, renderSpecMarkdown } from "../../domain/planning/render.js";
 import { extractDeclaredReqIds, findUnparsedReqTokens } from "../../domain/planning/req-ids.js";
 import { applyRiskFloor } from "../../domain/planning/risk.js";
+import { independenceWarnings } from "../../domain/planning/roles.js";
 import { selectTemplateId } from "../../domain/templates/render.js";
 import { sha256Of } from "../../shared/hash.js";
 import { err, fail, ok, type Result } from "../../shared/result.js";
@@ -36,6 +37,7 @@ import {
 } from "./artifacts.js";
 import { type PlanDeps, type PlanError, providerModeOf } from "./deps.js";
 import { architectPrompt, plannerPrompt, specPrompt } from "./prompts.js";
+import { loadRolesConfig } from "./roles-config.js";
 import { callRole } from "./run-role.js";
 import { parseSpecFile, serializeSpecFile } from "./spec-files.js";
 
@@ -50,6 +52,7 @@ export type PlanSummary = {
 	taskCount: number;
 	blockedTaskCount: number;
 	alreadyPlanned: boolean;
+	roleWarnings: string[];
 };
 
 const SPEC_PRODUCER = "spec-writer";
@@ -495,6 +498,22 @@ const STATE_HANDLERS: Partial<Record<Run["state"], Handler>> = {
 	RELEASING: stop,
 };
 
+const recordRoleWarnings = (deps: PlanDeps, runId: string): string[] => {
+	const roles = loadRolesConfig(deps.factoryFiles);
+	if (!roles.ok) return [];
+	const warnings = independenceWarnings(roles.value);
+	const recorded = deps.storage.events.list(runId, {}).some((e) => e.type === "roles.warning");
+	if (warnings.length > 0 && !recorded) {
+		deps.storage.events.append({
+			runId,
+			type: "roles.warning",
+			payload: { warnings },
+			now: deps.clock.now(),
+		});
+	}
+	return warnings;
+};
+
 export const planRun = async (
 	deps: PlanDeps,
 	input: { runId: string; force?: boolean },
@@ -522,6 +541,7 @@ export const planRun = async (
 	const gated = gateBlockedRun(deps, { runId: initial.id, force: input.force === true });
 	if (!gated.ok) return gated;
 	const attemptsBefore = deps.storage.roleAttempts.list(initial.id).length;
+	const roleWarnings = recordRoleWarnings(deps, initial.id);
 	const ctx: Context = {
 		deps,
 		runId: initial.id,
@@ -555,5 +575,6 @@ export const planRun = async (
 		taskCount: total,
 		blockedTaskCount: counts.BLOCKED,
 		alreadyPlanned: ctx.ran.length === 0,
+		roleWarnings,
 	});
 };

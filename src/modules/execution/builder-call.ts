@@ -7,6 +7,7 @@ import {
 	haltError,
 	loadRoleAssets,
 	providerError,
+	providerRouting,
 	ROLE_CALL_LIMITS,
 	toRequestSchema,
 } from "../planning/run-role.js";
@@ -53,7 +54,7 @@ export const callBuilder = async (
 				prompt: input.prompt,
 				systemPrompt: assets.value.systemPrompt,
 				jsonSchema: toRequestSchema(BuilderOutputSchema),
-				model: assets.value.model,
+				...providerRouting(assets.value),
 				tools: [...BUILDER_TOOLS],
 				cwd: input.cwd,
 				timeoutMs: ROLE_CALL_LIMITS.timeoutMs,

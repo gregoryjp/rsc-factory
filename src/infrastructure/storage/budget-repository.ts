@@ -157,6 +157,14 @@ export const createBudgetRepository = (db: Database.Database): BudgetRepository 
 			);
 		},
 		settle: (input) => settle(input),
+		providerCalls: (runId, provider) =>
+			Count.parse(
+				db
+					.prepare(
+						"SELECT COUNT(*) AS n FROM role_attempts WHERE run_id = ? AND provider = ? AND COALESCE(failure_class, '') != 'budget_exhausted'",
+					)
+					.get(runId, provider),
+			).n,
 		openReservations: (runId): OpenReservation[] =>
 			db
 				.prepare(`${OPEN_RESERVATIONS} ORDER BY r.id`)

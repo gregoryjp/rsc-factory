@@ -37,7 +37,7 @@ const sample = (runId: string, overrides: Partial<Check> = {}): Check => ({
 
 describe("checks table (migration 4)", () => {
 	it("is applied after the planning migrations", () => {
-		expect(seedRun().env.storage.appliedMigrations()).toEqual([1, 2, 3, 4, 5, 6, 7]);
+		expect(seedRun().env.storage.appliedMigrations()).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
 	});
 
 	it("round-trips a check, including argv and the isolated flag", () => {

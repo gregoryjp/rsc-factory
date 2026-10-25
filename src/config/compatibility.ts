@@ -1,5 +1,7 @@
 export const EXPECTED_CLAUDE_VERSION = "2.1.258";
 
+export const EXPECTED_CODEX_VERSION = "0.154.0";
+
 export const MIN_NODE_MAJOR = 22;
 
 export const NODE_IMAGE =

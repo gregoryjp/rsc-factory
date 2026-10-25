@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { z } from "zod";
 import { classifyProviderText, parseResetTime } from "../../domain/provider/quota.js";
 import type { Result } from "../../shared/result.js";
@@ -9,10 +8,8 @@ import type {
 	ProviderRequest,
 	ProviderSuccess,
 } from "./provider-port.js";
+import { DEFAULT_MAX_OUTPUT_BYTES, MAX_TIMER_MS, runProcess } from "./run-process.js";
 
-const DEFAULT_MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
-const MAX_STDERR_BYTES = 64 * 1024;
-const MAX_TIMER_MS = 2 ** 31 - 1;
 const BUDGET_SUBTYPE = "error_max_budget_usd";
 
 const EnvelopeSchema = z.object({
@@ -45,16 +42,6 @@ const EnvelopeSchema = z.object({
 		.transform((value) => value ?? undefined),
 });
 type Envelope = z.infer<typeof EnvelopeSchema>;
-
-type Completed = {
-	stdout: string;
-	stderr: string;
-	code: number | null;
-	timedOut: boolean;
-	overflowed: boolean;
-	aborted: boolean;
-	spawnError: string | undefined;
-};
 
 const profileArgs = (request: ProviderRequest): string[] => [
 	...(request.restricted === true ? ["--restricted"] : []),
@@ -100,98 +87,6 @@ const envelopeText = (envelope: Envelope): string =>
 		envelope.result ?? "",
 		envelope.api_error_status === undefined ? "" : String(envelope.api_error_status),
 	].join(" ");
-
-const runProcess = (
-	binaryPath: string,
-	args: string[],
-	options: {
-		cwd: string;
-		env: NodeJS.ProcessEnv | undefined;
-		timeoutMs: number;
-		maxOutputBytes: number;
-		signal: AbortSignal | undefined;
-	},
-): Promise<Completed> =>
-	new Promise((resolve) => {
-		const state: Completed = {
-			stdout: "",
-			stderr: "",
-			code: null,
-			timedOut: false,
-			overflowed: false,
-			aborted: false,
-			spawnError: undefined,
-		};
-		const stdoutChunks: Buffer[] = [];
-		const stderrChunks: Buffer[] = [];
-		let stdoutBytes = 0;
-		let stderrBytes = 0;
-		let settled = false;
-
-		const child = spawn(binaryPath, args, {
-			cwd: options.cwd,
-			env: options.env,
-			stdio: ["ignore", "pipe", "pipe"],
-			detached: true,
-		});
-
-		const killGroup = () => {
-			try {
-				if (child.pid === undefined) throw new Error("no pid");
-				process.kill(-child.pid, "SIGKILL");
-			} catch {
-				child.kill("SIGKILL");
-			}
-		};
-
-		const settle = (code: number | null) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timeoutTimer);
-			options.signal?.removeEventListener("abort", onAbort);
-			state.code = code;
-			state.stdout = Buffer.concat(stdoutChunks).toString("utf8");
-			state.stderr = Buffer.concat(stderrChunks).toString("utf8");
-			child.stdout.destroy();
-			child.stderr.destroy();
-			child.unref();
-			resolve(state);
-		};
-
-		const onAbort = () => {
-			state.aborted = true;
-			killGroup();
-			settle(null);
-		};
-
-		const timeoutTimer = setTimeout(() => {
-			state.timedOut = true;
-			killGroup();
-			settle(null);
-		}, options.timeoutMs);
-
-		options.signal?.addEventListener("abort", onAbort, { once: true });
-		child.stdout.on("data", (chunk: Buffer) => {
-			stdoutBytes += chunk.byteLength;
-			if (stdoutBytes > options.maxOutputBytes) {
-				state.overflowed = true;
-				killGroup();
-				settle(null);
-				return;
-			}
-			stdoutChunks.push(chunk);
-		});
-		child.stderr.on("data", (chunk: Buffer) => {
-			if (stderrBytes >= MAX_STDERR_BYTES) return;
-			stderrBytes += chunk.byteLength;
-			stderrChunks.push(chunk);
-		});
-		child.on("error", (cause) => {
-			state.spawnError = cause.message;
-			settle(null);
-		});
-		child.on("close", (code) => settle(code));
-	});
 
 const parseEnvelope = (stdout: string): Envelope | undefined => {
 	try {

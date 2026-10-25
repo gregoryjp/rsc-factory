@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { EXPECTED_CLAUDE_VERSION } from "../src/config/compatibility.js";
+import { EXPECTED_CLAUDE_VERSION, EXPECTED_CODEX_VERSION } from "../src/config/compatibility.js";
 import { loadConfig } from "../src/config/env.js";
+import { type RolesConfig, RolesConfigSchema } from "../src/contracts/planning.js";
 import { type CommandRunner, runDoctor } from "../src/modules/doctor/run-doctor.js";
 import { err, ok } from "../src/shared/result.js";
 import { createEnv, makeTempDir, writePrd } from "./helpers/env.js";
@@ -18,6 +19,22 @@ const runnerFor =
 			: ok({ stdout: output });
 	};
 
+const claudeOnlyRoles: RolesConfig = RolesConfigSchema.parse(
+	Object.fromEntries(
+		RolesConfigSchema.keyof().options.map((role) => [
+			role,
+			{ provider: "claude", model: role === "builder" ? "sonnet" : "opus" },
+		]),
+	),
+);
+
+const withUiOnCodex = (model = "gpt-6-astra"): RolesConfig =>
+	RolesConfigSchema.parse({
+		...claudeOnlyRoles,
+		"reviewer-ux": { provider: "codex", model, effort: "medium" },
+		"reviewer-ui": { provider: "codex", model, effort: "medium" },
+	});
+
 const baseDeps = (exec: CommandRunner, factoryHome = makeTempDir()) => ({
 	exec,
 	nodeVersion: "22.23.2",
@@ -27,6 +44,9 @@ const baseDeps = (exec: CommandRunner, factoryHome = makeTempDir()) => ({
 	runnerPreference: "auto" as const,
 	checkMigrations: () => ok([1, 2, 3, 4, 5]),
 	expectedMigrations: [1, 2, 3, 4, 5],
+	expectedCodexVersion: EXPECTED_CODEX_VERSION,
+	roles: ok(claudeOnlyRoles),
+	codexModels: ok(["gpt-6-astra", "gpt-6-sol"]),
 });
 
 const statusOf = (report: Awaited<ReturnType<typeof runDoctor>>, name: string) =>
@@ -112,11 +132,108 @@ describe("doctor", () => {
 	});
 
 	it("runs against a real storage through createEnv", () => {
-		expect(createEnv().storage.appliedMigrations()).toEqual([1, 2, 3, 4, 5, 6, 7]);
+		expect(createEnv().storage.appliedMigrations()).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+	});
+});
+
+const claudeTable = {
+	git: "git version 2.34.1",
+	claude: `${EXPECTED_CLAUDE_VERSION} (Claude Code)`,
+	docker: "Docker 29",
+};
+
+describe("doctor codex and role checks", () => {
+	it("keeps the expected Codex CLI version in sync with the compatibility matrix", () => {
+		const matrix = readFileSync(join(ROOT, "docs/compatibility/matrix.md"), "utf8");
+		expect(matrix).toContain(`| Codex CLI | ${EXPECTED_CODEX_VERSION} |`);
+	});
+
+	it("does not need codex when no role uses it", async () => {
+		const report = await runDoctor(baseDeps(runnerFor(claudeTable)));
+		expect(statusOf(report, "codex")).toBe("ok");
+		expect(statusOf(report, "codex-models")).toBe("ok");
+		expect(statusOf(report, "role-independence")).toBe("ok");
+	});
+
+	it("passes with the expected codex version and cached models", async () => {
+		const report = await runDoctor({
+			...baseDeps(runnerFor({ ...claudeTable, codex: `codex-cli ${EXPECTED_CODEX_VERSION}` })),
+			roles: ok(withUiOnCodex()),
+		});
+		expect(statusOf(report, "codex")).toBe("ok");
+		expect(statusOf(report, "codex-models")).toBe("ok");
+		expect(report.hasFailure).toBe(false);
+	});
+
+	it("only warns when codex is missing, a different version, or a configured model is not cached", async () => {
+		const missing = await runDoctor({
+			...baseDeps(runnerFor(claudeTable)),
+			roles: ok(withUiOnCodex()),
+		});
+		expect(statusOf(missing, "codex")).toBe("warn");
+		expect(missing.hasFailure).toBe(false);
+
+		const otherVersion = await runDoctor({
+			...baseDeps(runnerFor({ ...claudeTable, codex: "codex-cli 9.9.9" })),
+			roles: ok(withUiOnCodex()),
+		});
+		expect(statusOf(otherVersion, "codex")).toBe("warn");
+
+		const unknownModel = await runDoctor({
+			...baseDeps(runnerFor({ ...claudeTable, codex: `codex-cli ${EXPECTED_CODEX_VERSION}` })),
+			roles: ok(withUiOnCodex("gpt-9-imaginary")),
+		});
+		const models = unknownModel.checks.find((c) => c.name === "codex-models");
+		expect(models?.status).toBe("warn");
+		expect(models?.detail).toContain("gpt-9-imaginary");
+		expect(models?.detail).not.toContain("gpt-6-sol");
+		expect(unknownModel.hasFailure).toBe(false);
+
+		const noCache = await runDoctor({
+			...baseDeps(runnerFor({ ...claudeTable, codex: `codex-cli ${EXPECTED_CODEX_VERSION}` })),
+			roles: ok(withUiOnCodex()),
+			codexModels: err({ code: "unreadable", message: "models_cache.json not found" }),
+		});
+		expect(statusOf(noCache, "codex-models")).toBe("warn");
+	});
+
+	it("warns, never fails, when a reviewer shares provider and model with the builder", async () => {
+		const shared = RolesConfigSchema.parse({
+			...claudeOnlyRoles,
+			"reviewer-code": { provider: "claude", model: "sonnet" },
+		});
+		const report = await runDoctor({ ...baseDeps(runnerFor(claudeTable)), roles: ok(shared) });
+		const independence = report.checks.find((c) => c.name === "role-independence");
+		expect(independence?.status).toBe("warn");
+		expect(independence?.detail).toContain("reviewer-code");
+		expect(report.hasFailure).toBe(false);
+	});
+
+	it("warns when the roles config cannot be loaded", async () => {
+		const report = await runDoctor({
+			...baseDeps(runnerFor(claudeTable)),
+			roles: err({ code: "roles_invalid", message: "roles.json is not valid" }),
+		});
+		expect(statusOf(report, "role-independence")).toBe("warn");
+		expect(report.hasFailure).toBe(false);
 	});
 });
 
 describe("provider configuration", () => {
+	it("resolves the codex binary and home with defaults and overrides", () => {
+		expect(loadConfig({}, "/x", "/repo")).toMatchObject({
+			ok: true,
+			value: { codexBin: "codex", codexHome: expect.stringMatching(/\.codex$/) },
+		});
+		expect(
+			loadConfig(
+				{ FACTORY_CODEX_BIN: "/opt/codex", FACTORY_CODEX_HOME: "/h/.codex" },
+				"/x",
+				"/repo",
+			),
+		).toMatchObject({ ok: true, value: { codexBin: "/opt/codex", codexHome: "/h/.codex" } });
+	});
+
 	it("defaults to the real provider and the 60 KB context pack limit", () => {
 		expect(loadConfig({}, "/x", "/repo")).toMatchObject({
 			ok: true,

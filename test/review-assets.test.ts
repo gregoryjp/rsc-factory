@@ -143,13 +143,13 @@ describe("spec-writer personal-data rule", () => {
 
 describe("legal role configuration", () => {
 	it("has a model assignment and a budget ceiling", () => {
-		const roles: Record<string, string> = JSON.parse(
+		const roles: Record<string, { provider: string; model: string }> = JSON.parse(
 			readFileSync(join(REPO_ROOT, "factory", "config", "roles.json"), "utf8"),
 		);
 		const budget: { maxCallUsd: Record<string, number> } = JSON.parse(
 			readFileSync(join(REPO_ROOT, "factory", "config", "budget.json"), "utf8"),
 		);
-		expect(roles["reviewer-legal"]).toBe("sonnet");
+		expect(roles["reviewer-legal"]).toEqual({ provider: "claude", model: "sonnet" });
 		expect(budget.maxCallUsd["reviewer-legal"]).toBe(0.5);
 	});
 });

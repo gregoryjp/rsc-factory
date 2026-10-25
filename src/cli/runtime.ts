@@ -17,7 +17,9 @@ import { createReadOnlyGit } from "../infrastructure/git/read-only-git.js";
 import { uuidIds } from "../infrastructure/ids.js";
 import { execCommand } from "../infrastructure/process.js";
 import { createClaudeCliProvider } from "../infrastructure/providers/claude-cli-provider.js";
+import { createCodexCliProvider } from "../infrastructure/providers/codex-cli-provider.js";
 import type { ProviderPort } from "../infrastructure/providers/provider-port.js";
+import { createRoutingProvider } from "../infrastructure/providers/routing-provider.js";
 import {
 	createScriptedProvider,
 	loadFixtureScripts,
@@ -62,7 +64,17 @@ const OPTIONAL_FIXTURE_ROLES: readonly string[] = [
 
 const createProvider = (config: Config): Result<ProviderPort, Failure> => {
 	if (config.provider.kind === "claude") {
-		return ok(createClaudeCliProvider({ binaryPath: config.claudeBin }));
+		return ok(
+			createRoutingProvider({
+				claude: createClaudeCliProvider({ binaryPath: config.claudeBin }),
+				codex: createCodexCliProvider({
+					binaryPath: config.codexBin,
+					authFile: join(config.codexHome, "auth.json"),
+					workDir: join(config.factoryHome, "codex-calls"),
+					env: config.subprocessEnv,
+				}),
+			}),
+		);
 	}
 	const scripts = loadFixtureScripts(
 		config.provider.fixturesDir,
