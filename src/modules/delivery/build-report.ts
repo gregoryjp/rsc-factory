@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { Check } from "../../contracts/entities.js";
 import { UiEvidenceSchema } from "../../contracts/ui-evidence.js";
 import { isCheckPassed } from "../../domain/checks/evidence.js";
+import { summarizeAudit } from "../../domain/depaudit/summary.js";
 import { releaseStatusOf } from "../../domain/release/status.js";
 import { deliveryStateOf } from "../../domain/report/delivery-state.js";
 import type {
@@ -414,6 +415,7 @@ export const buildRunReport = (
 			critical: c.critical,
 			requirementIds: c.requirementIds,
 		})),
+		dependencyAudit: summarizeAudit(events),
 		retries: {
 			total: tasks.reduce((sum, task) => sum + task.retries, 0),
 			repairs: tasks.reduce((sum, task) => sum + task.repairs, 0),

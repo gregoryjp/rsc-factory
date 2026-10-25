@@ -124,6 +124,7 @@ export const ArtifactKindSchema = z.enum([
 	"bootstrap-staged",
 	"review",
 	"blocked-diff",
+	"audit-baseline",
 	"report",
 	"release-plan",
 ]);

@@ -3,6 +3,7 @@
 		"install": ["npm", "ci"],
 		"test": ["npm", "run", "test", "--workspaces", "--if-present"],
 		"check": ["npm", "run", "check"],
+		"audit": ["npm", "audit", "--omit=dev", "--json"],
 		"preview": {
 			"install": ["npm", "ci"],
 			"build": ["npm", "run", "build", "-w", "web"],
@@ -21,12 +22,14 @@
 	"api": {
 		"install": ["npm", "ci"],
 		"test": ["npm", "run", "test", "--workspaces", "--if-present"],
-		"check": ["npm", "run", "check"]
+		"check": ["npm", "run", "check"],
+		"audit": ["npm", "audit", "--omit=dev", "--json"]
 	},
 	"landing": {
 		"install": ["npm", "ci"],
 		"test": ["npm", "test"],
 		"check": ["npm", "run", "check"],
+		"audit": ["npm", "audit", "--omit=dev", "--json"],
 		"preview": {
 			"install": ["npm", "ci"],
 			"staticDir": ".",
@@ -37,6 +40,7 @@
 		"install": ["npm", "ci"],
 		"test": ["npm", "test"],
 		"check": ["npm", "run", "check"],
+		"audit": ["npm", "audit", "--omit=dev", "--json"],
 		"preview": {
 			"install": ["npm", "ci"],
 			"build": ["npm", "run", "build:web"],

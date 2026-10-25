@@ -20,6 +20,7 @@ import {
 	INSTALL_TIMEOUT_MS,
 	stepsFor,
 } from "./check-steps.js";
+import { type AuditOutcome, recordAuditBaseline, runDependencyAudit } from "./dependency-audit.js";
 import { type CheckDeps, runAndRecordChecks } from "./record-check.js";
 import { DEFAULT_REVIEW_DIFF_MAX_BYTES } from "./review-task.js";
 import type { StopInfo } from "./stop.js";
@@ -281,12 +282,26 @@ const finalizeRun = async (
 	const check = completedFinalCheck(ran.value, steps.length);
 	const head = deps.git.headSha(ctx.target);
 	if (!head.ok) return head;
-	const passed =
+	const checkPassed =
 		check !== undefined && isCheckPassed(check) && isCheckEvidenceValid(check, head.value);
+	const audited = checkPassed
+		? await runDependencyAudit(deps, {
+				runId: ctx.runId,
+				taskId: null,
+				repoDir: ctx.target,
+				cwdLabel: "integration-audit",
+				phase: "integration",
+				auditArgv: ctx.policy.audit,
+			})
+		: ok<AuditOutcome>({ kind: "pass" });
+	if (!audited.ok) return audited;
+	const auditBlocked = audited.value.kind === "blocked";
+	const passed = checkPassed && !auditBlocked;
+	const failure = checkPassed ? "audit_new_vulnerability" : "final_check_failed";
 	const moved = transitionRun(deps, {
 		runId: ctx.runId,
 		to: passed ? "READY_FOR_RELEASE" : "BLOCKED",
-		reason: passed ? "final integration check passed" : "final_check_failed",
+		reason: passed ? "final integration check passed" : failure,
 	});
 	if (!moved.ok) return moved;
 	return ok({ check: ran.value.at(-1) ?? null, passed });
@@ -318,6 +333,23 @@ export const buildRun = async (
 	return outcome;
 };
 
+const ensureAuditBaseline = async (
+	deps: BuildRunDeps,
+	ctx: TaskContext,
+): Promise<Result<void, Failure<string>>> => {
+	const bootstrapped = deps.storage.events
+		.list(ctx.runId, {})
+		.findLast((event) => event.type === "product.bootstrapped");
+	const head = deps.git.headSha(ctx.target);
+	if (!head.ok) return head;
+	if (bootstrapped?.payload.commitSha !== head.value) return ok(undefined);
+	return recordAuditBaseline(deps, {
+		runId: ctx.runId,
+		repoDir: ctx.target,
+		auditArgv: ctx.policy.audit,
+	});
+};
+
 const driveBuild = async (
 	deps: BuildRunDeps,
 	options: BuildOptions,
@@ -335,6 +367,8 @@ const driveBuild = async (
 			reviewDiffMaxBytes: options.reviewDiffMaxBytes ?? DEFAULT_REVIEW_DIFF_MAX_BYTES,
 			budget: { used: 0, max: options.maxProviderCalls ?? DEFAULT_MAX_PROVIDER_CALLS },
 		};
+		const baselined = await ensureAuditBaseline(deps, ctx);
+		if (!baselined.ok) return baselined;
 		const reports: TaskReport[] = [];
 		const attempted = new Set<string>();
 		let stop: { reason: BuildStop; detail: string | null } | undefined;

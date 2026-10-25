@@ -31,6 +31,7 @@ import {
 	withGuidance,
 } from "./builder-prompts.js";
 import { assertDoneEvidence, completedFinalCheck, stepsFor } from "./check-steps.js";
+import { runDependencyAudit } from "./dependency-audit.js";
 import type { BuildPhase, TaskBuild } from "./ports.js";
 import { type CheckDeps, runAndRecordChecks } from "./record-check.js";
 import { runReviews } from "./review-task.js";
@@ -490,6 +491,22 @@ const greenCommittedHandler: Handler = async (ctx, ref, build) => {
 	const last = ran.value.checks.at(-1);
 	if (ran.value.final && ran.value.final.exitCode === 0) {
 		const check = ran.value.final;
+		const audited = await runDependencyAudit(ctx.deps, {
+			runId: ctx.runId,
+			taskId: ref.task.id,
+			repoDir: worktreeOf(ctx, ref.key),
+			cwdLabel: "worktree-audit",
+			phase: "task",
+			auditArgv: ctx.policy.audit,
+		});
+		if (!audited.ok) return failed("check_runner_failed", audited.error.message);
+		if (audited.value.kind === "blocked") {
+			return {
+				blocked: "audit_new_vulnerability",
+				detail: audited.value.detail,
+				patch: { lastCheckId: check.id },
+			};
+		}
 		ctx.deps.storage.events.append({
 			runId: ctx.runId,
 			taskId: ref.task.id,

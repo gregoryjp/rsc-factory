@@ -5,6 +5,7 @@ import { type Failure, fail, ok, type Result } from "../../shared/result.js";
 import { loadCheckPolicy } from "../execution/build-policy.js";
 import type { BuildRunDeps } from "../execution/build-run.js";
 import { assertDoneEvidence, completedFinalCheck, stepsFor } from "../execution/check-steps.js";
+import { runDependencyAudit } from "../execution/dependency-audit.js";
 import { runAndRecordChecks } from "../execution/record-check.js";
 import { commitGuarded } from "../execution/safe-commit.js";
 import { INTEGRATION_BRANCH } from "../execution/task-build.js";
@@ -93,6 +94,7 @@ type Locked = {
 	targetPath: string;
 	policyArgv: readonly string[];
 	steps: ReturnType<typeof stepsFor>;
+	auditArgv: readonly string[] | undefined;
 };
 
 const writeReport = (
@@ -206,6 +208,26 @@ const deliverLocked = async (
 		.list(runId, {})
 		.findLast((e) => e.type === "delivery.report_committed");
 	const resumed = marker !== undefined && marker.payload.commit === head0.value;
+	if (!resumed) {
+		const audited = await runDependencyAudit(deps, {
+			runId,
+			taskId: null,
+			repoDir: target,
+			cwdLabel: "delivery-audit",
+			phase: "delivery",
+			auditArgv: locked.auditArgv,
+		});
+		if (!audited.ok) return audited;
+		if (audited.value.kind === "unavailable") {
+			return fail(
+				"audit_unavailable",
+				`The dependency audit could not run (${audited.value.reason}); delivery is blocked, retry later`,
+			);
+		}
+		if (audited.value.kind === "blocked") {
+			return fail("audit_new_vulnerability", audited.value.detail);
+		}
+	}
 	let reportHead = head0.value;
 	let base = typeof marker?.payload.base === "string" ? marker.payload.base : head0.value;
 	if (!resumed) {
@@ -344,7 +366,12 @@ export const deliverRun = async (
 			now: deps.clock.now(),
 		});
 	}
-	const locked: Locked = { targetPath: run.targetPath, policyArgv: last.argv, steps };
+	const locked: Locked = {
+		targetPath: run.targetPath,
+		policyArgv: last.argv,
+		steps,
+		auditArgv: policy.value.audit,
+	};
 	const outcome = await deps.git.withMergeLock<DeliverySummary, DeliverFailure>(run.id, () =>
 		deliverLocked(deps, run.id, locked),
 	);

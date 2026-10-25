@@ -34,11 +34,12 @@ import { gitEnv } from "./exec-env.js";
 
 export const NODE_TEMPLATE = "node-test";
 
-const NODE_POLICY = {
+const policyWith = (audit?: string[]) => ({
 	[NODE_TEMPLATE]: {
 		install: [],
 		test: ["node", "--test"],
 		check: ["node", "--test"],
+		...(audit ? { audit } : {}),
 		preview: {
 			install: ["true"],
 			staticDir: "web",
@@ -46,7 +47,8 @@ const NODE_POLICY = {
 			authFile: "web/ui-auth.json",
 		},
 	},
-};
+});
+const NODE_POLICY = policyWith();
 
 const good = (output: unknown): ScriptedResult => ({
 	ok: true,
@@ -116,6 +118,7 @@ export type BuildEnvOptions = {
 	reviewHook?: (request: ProviderRequest, index: number) => void;
 	hook?: (request: ProviderRequest, index: number) => void;
 	wrapRunner?: (runner: CheckRunnerPort) => CheckRunnerPort;
+	audit?: string[];
 	files?: Record<string, string>;
 	spec?: SpecOutput;
 	template?: {
@@ -278,7 +281,7 @@ export const createBuildEnv = async (options: BuildEnvOptions) => {
 		: {
 				read: (path) =>
 					path === "factory/policies/checks.json"
-						? ok({ content: JSON.stringify(NODE_POLICY), sha256: "0".repeat(64) })
+						? ok({ content: JSON.stringify(policyWith(options.audit)), sha256: "0".repeat(64) })
 						: base.factoryFiles.read(path),
 			};
 	const target = options.template?.target ?? join(makeTempDir(), "product");

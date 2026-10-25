@@ -1,3 +1,5 @@
+import type { AuditSummary } from "../depaudit/summary.js";
+
 export type RequirementStatus = "entregado" | "no_entregado" | "sin_evidencia";
 
 export type CheckRef = {
@@ -114,6 +116,7 @@ export type RunReport = {
 		requirementIds: string[];
 	}[];
 	retries: { total: number; repairs: number };
+	dependencyAudit: AuditSummary;
 	budget: {
 		budgetUsd: number;
 		chargedReportedUsd: number;
