@@ -16,7 +16,8 @@
 		"web/src/config/product.ts",
 		"web/public/legal/aviso-legal.html",
 		"web/public/legal/politica-privacidad.html",
-		"web/public/legal/politica-cookies.html"
+		"web/public/legal/politica-cookies.html",
+		"docker-compose.prod.example.yml"
 	],
 	"provides": [
 		"npm workspaces api/ and web/ with install, lint, typecheck and test already configured",
@@ -28,6 +29,14 @@
 		"api/ CSRF protection on cookie endpoints (X-Requested-With header and Origin allowlist)",
 		"api/ module layout routes/controllers/services/repositories/schemas with boundary, layer, raw-sql and comment guard scripts",
 		"api/ test setup with a guarded test database, per-test truncation and supertest",
+		"api/ pagination helper (Zod limit up to 100, bounded offset, hasMore) with GET /api/v1/audit/events as reference; check:pagination fails a findMany without take",
+		"api/src/modules/idempotency: Idempotency-Key middleware (per-user key, request hash, stored response replay, 422 on a different body, 409 in progress, TTL in Postgres)",
+		"api/src/modules/audit: append-only AuditEvent table (trigger), audit.record Result helper, auth events register/login/refresh reuse/logout, no PII beyond ids and ip",
+		"api/ graceful shutdown (SIGTERM drains and closes Prisma), readiness 503 while draining, HTTP server timeouts, pino redaction with request id, all tested",
+		"api/ DB least privilege: app_runtime (DML only) and app_migrator roles via scripts/db SQL, DATABASE_URL vs MIGRATION_DATABASE_URL, db:deploy wrapper, tested with SET ROLE",
+		"scripts/db-backup.sh and db-restore.sh (pg_dump/pg_restore custom format, single-transaction restore) plus docs/operations/{base-de-datos,backup-restore,despliegue}.md",
+		"Dockerfile (multi-stage, node pinned by digest, non-root, HEALTHCHECK, prod deps only, migrate target), .dockerignore and a hardened read-only docker-compose.prod.example.yml",
+		".github/workflows/ci.yml (typecheck, lint, check with Postgres service, npm audit --omit=dev, Docker build, actions pinned by SHA) and the check:deploy guard",
 		"web/: React + Vite + TypeScript app shell with CSS Modules, an App component and its test, /api proxy for local dev",
 		"web/ui-routes.json listing routes for browser evidence",
 		"web/index.html with a strict CSP meta (Vite dev strips it), web/public/_headers and docs/operations/{security-headers.md,Caddyfile.snippet} with the full HTTP security header set",

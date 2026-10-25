@@ -12,3 +12,9 @@ npm run check
 ```
 
 `npm run check` ejecuta la verificación completa de ambos workspaces. Los tests del API necesitan `NODE_ENV=test` y `TEST_DATABASE_URL` apuntando a una base cuyo nombre termine en `_test`.
+
+## Operación
+
+- `docs/operations/base-de-datos.md`: roles `app_runtime` y `app_migrator`, migraciones y auditoría.
+- `docs/operations/backup-restore.md`: backup, restauración y simulacro (`scripts/db-backup.sh`, `scripts/db-restore.sh`).
+- `docs/operations/despliegue.md`: imagen Docker, compose de producción, health/readiness, apagado ordenado, logs y CI.
