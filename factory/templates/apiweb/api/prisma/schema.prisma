@@ -33,3 +33,30 @@ model Session {
   @@index([familyId])
   @@index([userId])
 }
+
+model AuditEvent {
+  id        String   @id @default(uuid())
+  actorId   String?
+  action    String
+  resource  String?
+  ip        String?
+  requestId String?
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+}
+
+model IdempotencyKey {
+  id             String   @id @default(uuid())
+  userId         String
+  key            String
+  requestHash    String
+  responseStatus Int?
+  responseBody   Json?
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+
+  @@unique([userId, key])
+  @@index([expiresAt])
+}

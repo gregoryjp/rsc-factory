@@ -1,0 +1,70 @@
+name: factory-{{PRODUCT_SLUG}}
+
+services:
+  api:
+    image: factory-{{PRODUCT_SLUG}}-api:local
+    build:
+      context: .
+      target: runtime
+    container_name: factory-{{PRODUCT_SLUG}}-api
+    labels:
+      factory.managed: "true"
+    env_file: .env.production
+    ports:
+      - "127.0.0.1:3000:3000"
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    stop_grace_period: 30s
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  migrate:
+    image: factory-{{PRODUCT_SLUG}}-migrate:local
+    build:
+      context: .
+      target: migrate
+    container_name: factory-{{PRODUCT_SLUG}}-migrate
+    labels:
+      factory.managed: "true"
+    profiles:
+      - migrate
+    env_file: .env.migrate
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    container_name: factory-{{PRODUCT_SLUG}}-postgres
+    labels:
+      factory.managed: "true"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

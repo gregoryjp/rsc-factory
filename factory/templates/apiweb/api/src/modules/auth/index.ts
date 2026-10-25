@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import type { RequestHandler, Router } from "express";
+import type { AuditRecorder } from "../../infrastructure/audit.js";
 import type { Authenticate } from "../../infrastructure/http/auth.js";
 import { createAuthController } from "./controllers/auth.controller.js";
 import { createAuthRepository } from "./repositories/auth.repository.js";
@@ -17,8 +18,9 @@ export const createAuthModule = (deps: {
 	authLimiter: RequestHandler;
 	csrf: RequestHandler;
 	secureCookies: boolean;
+	audit: AuditRecorder;
 }): AuthModule => {
-	const service = createAuthService(createAuthRepository(deps.prisma));
+	const service = createAuthService(createAuthRepository(deps.prisma), deps.audit);
 	const controller = createAuthController(service, { secureCookies: deps.secureCookies });
 	return {
 		publicRouter: createAuthPublicRoutes(controller, {

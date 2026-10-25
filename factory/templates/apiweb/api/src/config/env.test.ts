@@ -33,4 +33,35 @@ describe("security env", () => {
 			parseEnv({ ...production, RATE_LIMIT_AUTH_MAX: "101", RATE_LIMIT_MAX: "500" }),
 		).toThrow(/RATE_LIMIT_AUTH_MAX/);
 	});
+
+	it("defaults the idempotency TTL, shutdown timeout and leaves the migrator url unset", () => {
+		const env = parseEnv(base);
+		expect(env.IDEMPOTENCY_TTL_MS).toBe(86_400_000);
+		expect(env.SHUTDOWN_TIMEOUT_MS).toBe(10_000);
+		expect(env.MIGRATION_DATABASE_URL).toBeUndefined();
+	});
+
+	it("keeps the runtime off migrator and superuser credentials in production", () => {
+		const migrator = "postgresql://app_migrator:p@db:5432/app";
+		expect(() =>
+			parseEnv({ ...production, DATABASE_URL: migrator, MIGRATION_DATABASE_URL: migrator }),
+		).toThrow(/MIGRATION_DATABASE_URL/);
+		expect(() =>
+			parseEnv({
+				...production,
+				DATABASE_URL: "postgresql://app_runtime:p@db:5432/app",
+				MIGRATION_DATABASE_URL: migrator,
+			}),
+		).not.toThrow();
+		expect(() =>
+			parseEnv({ ...production, DATABASE_URL: "postgresql://postgres:p@db:5432/app" }),
+		).toThrow(/superuser/);
+		expect(() =>
+			parseEnv({
+				...base,
+				MIGRATION_DATABASE_URL: base.DATABASE_URL,
+				DATABASE_URL: base.DATABASE_URL,
+			}),
+		).not.toThrow();
+	});
 });

@@ -8,3 +8,8 @@
 6. Tests contra PostgreSQL real, en serie, con guard que exige `NODE_ENV=test` y una base `*_test`.
 7. Sin comentarios en código (`npm run check:comments`).
 8. Versiones exactas en `package.json`.
+9. Listados siempre paginados con el helper de `src/infrastructure/pagination.ts` (`npm run check:pagination`).
+10. Rutas POST con efectos no repetibles aceptan `Idempotency-Key` mediante el módulo `idempotency`.
+11. Eventos de seguridad y de negocio sensibles se registran con `audit.record`, solo con ids e IP.
+12. El runtime usa `DATABASE_URL` con el rol `app_runtime`; migrar solo con `MIGRATION_DATABASE_URL`.
+13. Imagen de producción: digest fijado, usuario no root, `HEALTHCHECK`, sin dependencias de desarrollo (`npm run check:deploy`).
